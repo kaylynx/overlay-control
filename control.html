@@ -13,28 +13,35 @@ input[type=range]{width:150px;}
 <body>
 
 <h2>Control the Lynx 🐾</h2>
-<label>Your Name: <input id="name" placeholder="Viewer Name"></label>
-<div id="box">
-  <img id="lynx" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png">
+
+<label>Password: <input id="passwordInput" type="password" placeholder="Enter password"></label>
+<button id="loginBtn">Enter</button>
+<p id="error" style="color:red;"></p>
+
+<div id="controls" style="display:none;">
+  <label>Your Name: <input id="name" placeholder="Viewer Name"></label>
+  <div id="box">
+    <img id="lynx" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png">
+  </div>
+
+  <h3>Accessories</h3>
+  <button onclick="toggle('hat')">Hat</button>
+  <button onclick="toggle('glasses')">Glasses</button>
+  <button onclick="toggle('coffee')">Coffee</button>
+
+  <h3>Animations</h3>
+  <button onclick="animate('blink')">Blink</button>
+  <button onclick="animate('bounce')">Bounce</button>
+  <button onclick="animate('wiggle')">Wiggle</button>
+  <button onclick="animate('spin')">Spin</button>
+  <button onclick="animate('zoomies')">Zoomies</button>
+
+  <h3>Resize</h3>
+  <label>Lynx: <input type="range" id="lynxSize" min="50" max="400" value="150"></label><br>
+  <label>Hat: <input type="range" id="hatSize" min="30" max="150" value="80"></label><br>
+  <label>Glasses: <input type="range" id="glassesSize" min="30" max="150" value="80"></label><br>
+  <label>Coffee: <input type="range" id="coffeeSize" min="30" max="150" value="80"></label>
 </div>
-
-<h3>Accessories</h3>
-<button onclick="toggle('hat')">Hat</button>
-<button onclick="toggle('glasses')">Glasses</button>
-<button onclick="toggle('coffee')">Coffee</button>
-
-<h3>Animations</h3>
-<button onclick="animate('blink')">Blink</button>
-<button onclick="animate('bounce')">Bounce</button>
-<button onclick="animate('wiggle')">Wiggle</button>
-<button onclick="animate('spin')">Spin</button>
-<button onclick="animate('zoomies')">Zoomies</button>
-
-<h3>Resize</h3>
-<label>Lynx: <input type="range" id="lynxSize" min="50" max="400" value="150"></label><br>
-<label>Hat: <input type="range" id="hatSize" min="30" max="150" value="80"></label><br>
-<label>Glasses: <input type="range" id="glassesSize" min="30" max="150" value="80"></label><br>
-<label>Coffee: <input type="range" id="coffeeSize" min="30" max="150" value="80"></label>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
@@ -53,7 +60,29 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-let state = { x:0, y:0, lynxWidth:150, hat:false, hatWidth:80, glasses:false, glassesWidth:80, coffee:false, coffeeWidth:80, blink:false, bounce:false, wiggle:false, spin:false, zoomies:false, controller:"" };
+let state = {
+  x:0, y:0, lynxWidth:150,
+  hat:false, hatWidth:80,
+  glasses:false, glassesWidth:80,
+  coffee:false, coffeeWidth:80,
+  blink:false, bounce:false, wiggle:false, spin:false, zoomies:false,
+  controller:""
+};
+
+const PASSWORD = "yourpassword123";
+const loginBtn = document.getElementById("loginBtn");
+const passwordInput = document.getElementById("passwordInput");
+const controlsDiv = document.getElementById("controls");
+const errorEl = document.getElementById("error");
+
+loginBtn.onclick = () => {
+  if(passwordInput.value === PASSWORD){
+    controlsDiv.style.display = "block";
+    passwordInput.style.display = "none";
+    loginBtn.style.display = "none";
+    errorEl.innerText = "";
+  } else { errorEl.innerText = "Incorrect password!"; }
+};
 
 const lynx = document.getElementById("lynx");
 const box = document.getElementById("box");
@@ -66,6 +95,7 @@ const controlBoxHeight = 540;
 const scaleX = overlayWidth / controlBoxWidth;
 const scaleY = overlayHeight / controlBoxHeight;
 
+// Dragging
 lynx.onmousedown = () => {
   document.onmousemove = (e) => {
     let rect = box.getBoundingClientRect();
@@ -73,26 +103,31 @@ lynx.onmousedown = () => {
     let y = e.clientY - rect.top;
     x = Math.max(0, Math.min(x, controlBoxWidth - lynx.offsetWidth));
     y = Math.max(0, Math.min(y, controlBoxHeight - lynx.offsetHeight));
-
     lynx.style.left = x + "px";
     lynx.style.top = y + "px";
-
     state.x = x * scaleX;
     state.y = y * scaleY;
     state.controller = nameInput.value || "Anonymous";
-    set(ref(db, "lynx"), state);
+    set(ref(db,"lynx"), state);
   };
   document.onmouseup = () => { document.onmousemove = null; };
 };
 
+// Toggle accessories
 function toggle(item){ state[item]=!state[item]; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state); }
-function animate(action){ state[action]=true; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state); setTimeout(()=>{state[action]=false; set(ref(db,"lynx"),state);},500); }
 
-// Resize sliders
-document.getElementById("lynxSize").oninput = e => { state.lynxWidth=e.target.value; set(ref(db,"lynx"),state); };
-document.getElementById("hatSize").oninput = e => { state.hatWidth=e.target.value; set(ref(db,"lynx"),state); };
-document.getElementById("glassesSize").oninput = e => { state.glassesWidth=e.target.value; set(ref(db,"lynx"),state); };
-document.getElementById("coffeeSize").oninput = e => { state.coffeeWidth=e.target.value; set(ref(db,"lynx"),state); };
+// Animations
+function animate(action){ state[action]=true; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state);
+  setTimeout(()=>{state[action]=false; set(ref(db,"lynx"),state);},500);
+}
+
+// Resize
+function updateSize(name,val){ state[name]=parseInt(val); state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state); }
+document.getElementById("lynxSize").oninput = e=>updateSize("lynxWidth",e.target.value);
+document.getElementById("hatSize").oninput = e=>updateSize("hatWidth",e.target.value);
+document.getElementById("glassesSize").oninput = e=>updateSize("glassesWidth",e.target.value);
+document.getElementById("coffeeSize").oninput = e=>updateSize("coffeeWidth",e.target.value);
+
 </script>
 </body>
 </html>

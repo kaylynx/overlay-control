@@ -71,6 +71,10 @@
     <div id="edit-panel">
         <button onclick="toggleFlip()">Flip ↔️</button>
         <button onclick="bringToFront()">Bring to Front 🔝</button>
+        <div id="resize-container" style="display:none; align-items:center; gap:10px;">
+            <label style="font-size:11px;">Item Size:</label>
+            <input type="range" id="itemSizeSlider" min="5" max="50" oninput="resizeItem(this.value)">
+        </div>
         <button onclick="removeItem()" style="background:#8b0000;">Remove Selected</button>
     </div>
 </div>
@@ -95,7 +99,24 @@ const sessionId = "user_" + Math.random().toString(36).substr(2,9);
 const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/";
 
 const files = ['Kaylynx_Eevee.png', '8bit.png', 'aviators.png', 'blackheart.png', 'cateye.png', 'cowboy.png', 'jester.png', 'party.png', 'pinkheart.png', 'pirate.png', 'santa.png', 'shades.png', 'sunhat.png', 'witch.png'];
-const soundFiles = ["crab-rave-(copy)-made-with-Voicemod.mp3", "star-wars-cantina-made-with-Voicemod.mp3", "bruh-made-with-Voicemod.mp3", "navi-hey-made-with-Voicemod.mp3", "turn-the-lights-off-v2--short-made-with-Voicemod.mp3", "whatcha-say-_short_-(hide-and-seek-made-with-Voicemod.mp3", "meow-deep-made-with-Voicemod.mp3", "roblox-bye-wave-made-with-Voicemod.mp3", "two-hours-later-(spongebob)-quicksounds-made-with-Voicemod.mp3", "emotional-damage-made-with-Voicemod.mp3", "lizard-made-with-Voicemod.mp3", "tickles-my-balls-made-with-Voicemod.mp3", "objection!-made-with-Voicemod.mp3", "correct!-made-with-Voicemod.mp3"];
+
+// Sound files with custom display names
+const soundMap = {
+    "crab-rave-(copy)-made-with-Voicemod.mp3": "Crab Rave",
+    "turn-the-lights-off-v2--short-made-with-Voicemod.mp3": "Turn The Lights Off",
+    "whatcha-say-_short_-(hide-and-seek-made-with-Voicemod.mp3": "Whatcha Say",
+    "two-hours-later-(spongebob)-quicksounds-made-with-Voicemod.mp3": "Two Hours Later",
+    "star-wars-cantina-made-with-Voicemod.mp3": "Star Wars Cantina",
+    "bruh-made-with-Voicemod.mp3": "Bruh",
+    "navi-hey-made-with-Voicemod.mp3": "Navi Hey",
+    "meow-deep-made-with-Voicemod.mp3": "Deep Meow",
+    "roblox-bye-wave-made-with-Voicemod.mp3": "Roblox Bye",
+    "emotional-damage-made-with-Voicemod.mp3": "Emotional Damage",
+    "lizard-made-with-Voicemod.mp3": "Lizard",
+    "tickles-my-balls-made-with-Voicemod.mp3": "Tickles",
+    "objection!-made-with-Voicemod.mp3": "Objection!",
+    "correct!-made-with-Voicemod.mp3": "Correct!"
+};
 
 let sessionData = { controller: "Anonymous", items: {} };
 let selectedId = null;
@@ -104,7 +125,6 @@ let isDrawing = false;
 let currentPenColor = '#ff00ff';
 let lastPoint = null;
 
-// Login Logic
 document.getElementById('loginBtn').onclick = () => {
     const pass = document.getElementById('passwordInput').value;
     if(pass === "yourpassword123" || pass === "admin123") {
@@ -113,7 +133,6 @@ document.getElementById('loginBtn').onclick = () => {
     }
 };
 
-// Populate Closet
 const accessoryList = document.getElementById('accessory-list');
 files.forEach(f => {
     const b = document.createElement('button');
@@ -122,11 +141,10 @@ files.forEach(f => {
     accessoryList.appendChild(b);
 });
 
-// Populate Soundboard
 const soundGrid = document.getElementById('sound-grid');
-soundFiles.forEach(file => {
+Object.entries(soundMap).forEach(([file, label]) => {
     const b = document.createElement('button');
-    b.innerText = file.split('-made-with')[0].replace(/-/g, ' ').replace(/_/g, ' ');
+    b.innerText = label;
     b.onclick = () => push(ref(db, 'triggers'), { type: file, time: Date.now() });
     soundGrid.appendChild(b);
 });
@@ -134,11 +152,8 @@ soundFiles.forEach(file => {
 window.addItem = (url) => {
     const nameInput = document.getElementById('userName');
     if(!nameInput.value.trim()) { alert("Please enter your name first!"); return; }
-    
-    // Lock Name
     nameInput.disabled = true;
     nameInput.style.opacity = "0.5";
-
     const id = "item_" + Date.now();
     sessionData.items[id] = { src: url, x: 50, y: 50, w: 15, flip: 1, z: 10 };
     sessionData.controller = nameInput.value;
@@ -149,6 +164,14 @@ window.removeItem = () => {
     if(selectedId && sessionData.items[selectedId]) {
         delete sessionData.items[selectedId];
         selectedId = null;
+        document.getElementById('resize-container').style.display = 'none';
+        sync();
+    }
+};
+
+window.resizeItem = (val) => {
+    if(selectedId && sessionData.items[selectedId]) {
+        sessionData.items[selectedId].w = val;
         sync();
     }
 };
@@ -177,14 +200,24 @@ window.setPenColor = (c) => { currentPenColor = c; };
 
 function sync() { set(ref(db, `lynxSessions/${sessionId}`), sessionData); }
 
-// Canvas Drawing Logic
 const canvas = document.getElementById('drawingCanvas');
 const ctx = canvas.getContext('2d');
 const box = document.getElementById('box');
 function resizeCanvas() { canvas.width = box.clientWidth; canvas.height = box.clientHeight; }
 window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-box.onmousedown = (e) => { if(mode === 'pen') { isDrawing = true; const rect = box.getBoundingClientRect(); lastPoint = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 }; }};
+box.onmousedown = (e) => { 
+    if(mode === 'pen') { 
+        isDrawing = true; 
+        const rect = box.getBoundingClientRect(); 
+        lastPoint = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 }; 
+    } else {
+        selectedId = null;
+        document.getElementById('resize-container').style.display = 'none';
+        render();
+    }
+};
+
 window.onmousemove = (e) => {
     if(!isDrawing || mode !== 'pen') return;
     const rect = box.getBoundingClientRect();
@@ -194,7 +227,6 @@ window.onmousemove = (e) => {
 };
 window.onmouseup = () => { isDrawing = false; };
 
-// Sync from DB
 onValue(ref(db, `lynxSessions/${sessionId}`), (snap) => {
     sessionData = snap.val() || { controller: "Anonymous", items: {} };
     render();
@@ -220,6 +252,8 @@ function render() {
         img.onmousedown = (e) => {
             if(mode !== 'move') return;
             e.stopPropagation(); selectedId = id;
+            document.getElementById('resize-container').style.display = 'flex';
+            document.getElementById('itemSizeSlider').value = data.w;
             document.onmousemove = (ev) => {
                 const rect = box.getBoundingClientRect();
                 sessionData.items[id].x = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));

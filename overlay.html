@@ -80,7 +80,9 @@ const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/
 
 const bonkAudio = new Audio("https://www.myinstants.com/media/sounds/anime-punch.mp3");
 const hornAudio = new Audio("https://www.myinstants.com/media/sounds/party-horn-sound-effect.mp3");
-const headpatGif = baseUrl + "patpatgif.gif";
+
+// FIXED GIF URL (POINTS TO THE RAW FILE DIRECTLY)
+const headpatGif = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/65c97f18-f450-46be-b577-f4965ba84377_patpatgif.gif";
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.onresize = resize; resize();
@@ -111,12 +113,13 @@ onChildAdded(ref(db, 'effects/events'), (snap) => {
         const lynxes = document.querySelectorAll(`[data-session="${data.targetSession}"]`);
         lynxes.forEach(lynxEl => {
             const hand = document.createElement('img');
+            // Adding timestamp to reset the GIF animation
             hand.src = headpatGif + '?t=' + Date.now();
             hand.className = 'headpat-hand';
             hand.style.left = lynxEl.style.left;
             hand.style.top = lynxEl.style.top;
             const targetWidth = lynxEl.querySelector('img').style.width;
-            hand.style.width = `calc(${targetWidth} * 1.2)`;
+            hand.style.width = `calc(${targetWidth} * 1.5)`;
             container.appendChild(hand);
             setTimeout(() => hand.remove(), 1500);
         });

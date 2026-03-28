@@ -1,180 +1,94 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lynx Stream Overlay</title>
     <style>
-        /* Make the background transparent for OBS */
-        body { 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            background: transparent; 
-            width: 100vw; 
-            height: 100vh;
+        body { margin:0; overflow:hidden; background:transparent; }
+        #overlay-container { width: 100vw; height: 100vh; position: relative; }
+        .user-item { position: absolute; transform: translate(-50%, -50%); }
+        .name-tag { 
+            position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: #00ffcc; padding: 2px 10px; 
+            border-radius: 4px; font-family: sans-serif; font-size: 14px; white-space: nowrap;
         }
-
-        #overlay-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-
-        /* Styling for the accessories and name tags */
-        .user-item {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            pointer-events: none; /* Let clicks pass through to the sound trigger */
-        }
-
-        .name-tag {
-            position: absolute;
-            top: -25px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            color: #00ffcc;
-            padding: 2px 10px;
-            border-radius: 4px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 14px;
-            font-weight: bold;
-            white-space: nowrap;
-            text-shadow: 1px 1px 2px black;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        /* The Drawing Canvas layer */
-        #drawLayer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 5; /* Sit behind accessories but above background */
-        }
+        #drawLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
     </style>
 </head>
 <body>
-
-    <div id="overlay-container">
-        <!-- Canvas for the Pen tool -->
-        <canvas id="drawLayer"></canvas>
-    </div>
+    <div id="overlay-container"><canvas id="drawLayer"></canvas></div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-    import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
-    // Your Firebase Configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
-        authDomain: "overlay-control-a2c56.firebaseapp.com",
-        databaseURL: "https://overlay-control-a2c56-default-rtdb.firebaseio.com",
-        projectId: "overlay-control-a2c56",
-        storageBucket: "overlay-control-a2c56.firebasestorage.app",
-        messagingSenderId: "511339245584",
-        appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
-    };
+const firebaseConfig = {
+    apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
+    authDomain: "overlay-control-a2c56.firebaseapp.com",
+    databaseURL: "https://overlay-control-a2c56-default-rtdb.firebaseio.com",
+    projectId: "overlay-control-a2c56",
+    storageBucket: "overlay-control-a2c56.firebasestorage.app",
+    messagingSenderId: "511339245584",
+    appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const container = document.getElementById('overlay-container');
-    const canvas = document.getElementById('drawLayer');
-    const ctx = canvas.getContext('2d');
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const container = document.getElementById('overlay-container');
+const canvas = document.getElementById('drawLayer');
+const ctx = canvas.getContext('2d');
 
-    // Handle Resize to keep 16:9 internal math consistent
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.onresize = resize; resize();
+
+const sounds = {
+    meow: new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3'),
+    boing: new Audio('https://assets.mixkit.co/active_storage/sfx/1344/1344-preview.mp3')
+};
+
+onValue(ref(db, "lynxSessions"), (snap) => {
+    document.querySelectorAll('.user-item').forEach(e => e.remove());
+    const data = snap.val() || {};
+    Object.values(data).forEach(session => {
+        if (!session.items) return;
+        Object.entries(session.items).forEach(([id, item]) => {
+            const div = document.createElement('div');
+            div.className = 'user-item';
+            div.style.left = item.x + "%"; div.style.top = item.y + "%";
+            div.style.zIndex = item.z || 10;
+            const img = document.createElement('img');
+            img.src = item.src;
+            img.style.width = item.w + "vw";
+            img.style.transform = `scaleX(${item.flip || 1})`;
+            const name = document.createElement('div');
+            name.className = 'name-tag';
+            name.innerText = session.controller || "";
+            div.appendChild(name); div.appendChild(img); container.appendChild(div);
+        });
+    });
+});
+
+onValue(ref(db, 'drawings'), (snap) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const data = snap.val();
+    if(!data) return;
+    Object.values(data).forEach(line => {
+        ctx.strokeStyle = line.color;
+        ctx.lineWidth = (line.width / 100) * canvas.width;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo((line.x1 / 100) * canvas.width, (line.y1 / 100) * canvas.height);
+        ctx.lineTo((line.x2 / 100) * canvas.width, (line.y2 / 100) * canvas.height);
+        ctx.stroke();
+    });
+});
+
+onChildAdded(ref(db, 'triggers'), (snapshot) => {
+    const trigger = snapshot.val();
+    if (Date.now() - trigger.time < 2000) {
+        const s = sounds[trigger.type];
+        if (s) { s.currentTime = 0; s.play().catch(e => console.log("Click overlay to enable sound")); }
     }
-    window.addEventListener('resize', resize);
-    resize();
-
-    // Sound Library
-    const sounds = {
-        meow: new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3'),
-        boing: new Audio('https://assets.mixkit.co/active_storage/sfx/1344/1344-preview.mp3')
-    };
-
-    /**
-     * ACCESSORIES SYNC
-     * Listens for all active sessions and renders their items
-     */
-    onValue(ref(db, "lynxSessions"), (snap) => {
-        // Clear current items before re-rendering
-        document.querySelectorAll('.user-item').forEach(e => e.remove());
-        
-        const data = snap.val() || {};
-        Object.values(data).forEach(session => {
-            if (!session.items) return;
-
-            Object.entries(session.items).forEach(([id, item]) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'user-item';
-                itemDiv.style.left = item.x + "%";
-                itemDiv.style.top = item.y + "%";
-                itemDiv.style.zIndex = item.z || 10;
-
-                const img = document.createElement('img');
-                img.src = item.src;
-                // Using vw for width makes it scale perfectly with the browser size
-                img.style.width = item.w + "vw"; 
-                img.style.transform = `scaleX(${item.flip || 1})`;
-
-                const nameTag = document.createElement('div');
-                nameTag.className = 'name-tag';
-                nameTag.innerText = session.controller || "Guest";
-
-                itemDiv.appendChild(nameTag);
-                itemDiv.appendChild(img);
-                container.appendChild(itemDiv);
-            });
-        });
-    });
-
-    /**
-     * DRAWING SYNC
-     * Renders smooth lines based on normalized coordinates
-     */
-    onValue(ref(db, 'drawings'), (snap) => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const data = snap.val();
-        if (!data) return;
-
-        Object.values(data).forEach(line => {
-            ctx.strokeStyle = line.color;
-            // Scale line width relative to current window width
-            ctx.lineWidth = (line.width / 100) * canvas.width; 
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            ctx.beginPath();
-            // Convert percentages back to pixels
-            ctx.moveTo((line.x1 / 100) * canvas.width, (line.y1 / 100) * canvas.height);
-            ctx.lineTo((line.x2 / 100) * canvas.width, (line.y2 / 100) * canvas.height);
-            ctx.stroke();
-        });
-    });
-
-    /**
-     * SOUND TRIGGERS
-     * Plays sound alerts when a user clicks a sound button
-     */
-    onChildAdded(ref(db, 'triggers'), (snapshot) => {
-        const trigger = snapshot.val();
-        // Only play if the trigger is fresh (last 2 seconds)
-        if (Date.now() - trigger.time < 2000) {
-            const s = sounds[trigger.type];
-            if (s) {
-                s.currentTime = 0;
-                s.play().catch(e => {
-                    console.warn("Audio blocked. Right-click browser source -> Interact and click once to enable.");
-                });
-            }
-        }
-    });
+});
 </script>
 </body>
 </html>

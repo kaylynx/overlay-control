@@ -1,25 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<style>
-    body { margin:0; overflow:hidden; background:transparent; }
-    #canvas { width: 1920px; height: 1080px; position: relative; }
-    .item-wrapper { position: absolute; transition: transform 0.1s linear; }
-    .name-tag {
-        position: absolute; top: -25px; left: 0;
-        background: rgba(0,0,0,0.6); color: white;
-        padding: 2px 8px; border-radius: 4px; font-family: sans-serif;
-        font-size: 14px; white-space: nowrap;
-    }
-</style>
+    <meta charset="UTF-8">
+    <style>
+        body { margin:0; overflow:hidden; background:transparent; }
+        #canvas-wrap { width: 1920px; height: 1080px; position: relative; }
+        .item { position: absolute; transition: transform 0.1s linear; }
+        .name { 
+            position: absolute; top: -30px; left: 0; background: rgba(0,0,0,0.7); 
+            color: white; padding: 4px 10px; border-radius: 5px; font-family: sans-serif;
+        }
+    </style>
 </head>
 <body>
-<div id="canvas"></div>
+    <div id="canvas-wrap"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
@@ -33,34 +31,53 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const canvas = document.getElementById("canvas");
+const wrap = document.getElementById('canvas-wrap');
 
+// SOUND ASSETS (Replace these with your actual links)
+const sounds = {
+    meow: new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3'),
+    boing: new Audio('https://assets.mixkit.co/active_storage/sfx/1344/1344-preview.mp3')
+};
+
+// Item Update Loop
 onValue(ref(db, "lynxSessions"), (snapshot) => {
-    canvas.innerHTML = ""; // Clear and redraw
-    const allSessions = snapshot.val() || {};
+    wrap.innerHTML = "";
+    const data = snapshot.val() || {};
+    Object.values(data).forEach(session => {
+        if (!session.items) return;
+        Object.entries(session.items).forEach(([id, item]) => {
+            const el = document.createElement('div');
+            el.className = 'item';
+            el.style.left = item.x + 'px';
+            el.style.top = item.y + 'px';
+            el.style.zIndex = item.z || 1;
 
-    Object.entries(allSessions).forEach(([userId, sessionData]) => {
-        if (!sessionData.items) return;
-
-        Object.entries(sessionData.items).forEach(([itemId, item]) => {
-            const wrapper = document.createElement("div");
-            wrapper.className = "item-wrapper";
-            wrapper.style.left = item.x + "px";
-            wrapper.style.top = item.y + "px";
-
-            const img = document.createElement("img");
+            const img = document.createElement('img');
             img.src = item.src;
             img.style.width = item.w + "px";
+            img.style.transform = `scaleX(${item.flip || 1})`;
 
-            const name = document.createElement("div");
-            name.className = "name-tag";
-            name.innerText = sessionData.controller;
+            const name = document.createElement('div');
+            name.className = 'name';
+            name.innerText = session.controller;
 
-            wrapper.appendChild(name);
-            wrapper.appendChild(img);
-            canvas.appendChild(wrapper);
+            el.appendChild(name);
+            el.appendChild(img);
+            wrap.appendChild(el);
         });
     });
+});
+
+// Sound Trigger Loop
+onChildAdded(ref(db, 'triggers'), (snapshot) => {
+    const trigger = snapshot.val();
+    // Only play if trigger is brand new (within last 2 seconds)
+    if (Date.now() - trigger.time < 2000) {
+        if (sounds[trigger.type]) {
+            sounds[trigger.type].currentTime = 0;
+            sounds[trigger.type].play();
+        }
+    }
 });
 </script>
 </body>

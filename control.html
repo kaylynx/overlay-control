@@ -1,34 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family:sans-serif; text-align:center; }
-    #box {
-      width:400px;
-      height:400px;
-      border:2px solid black;
-      margin:auto;
-      position:relative;
-    }
-    #lynx {
-      width:80px;
-      position:absolute;
-      cursor:grab;
-      left:100px;
-      top:100px;
-    }
-  </style>
+<meta charset="UTF-8">
+<style>
+body { font-family:sans-serif; text-align:center; }
+#box { width:400px; height:400px; border:2px solid black; margin:auto; position:relative; }
+#lynx { width:80px; position:absolute; cursor:grab; left:100px; top:100px; }
+button { margin:5px; }
+</style>
 </head>
 <body>
 
 <h2>Control the Lynx 🐾</h2>
-
+<label>Your Name: <input id="name" placeholder="Viewer Name"></label>
 <div id="box">
-  <img id="lynx" src="https://via.placeholder.com/80">
+  <img id="lynx" src="https://kaylynx.github.io/overlay-control/Kaylynx_Eevee.png">
 </div>
 
-<button onclick="toggleHat()">Toggle Hat</button>
+<h3>Accessories</h3>
+<button onclick="toggle('hat')">Hat</button>
+<button onclick="toggle('glasses')">Glasses</button>
+<button onclick="toggle('coffee')">Coffee</button>
+
+<h3>Animations</h3>
+<button onclick="animate('blink')">Blink</button>
+<button onclick="animate('bounce')">Bounce</button>
+<button onclick="animate('wiggle')">Wiggle</button>
+<button onclick="animate('spin')">Spin</button>
+<button onclick="animate('zoomies')">Zoomies</button>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
@@ -47,19 +46,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-let state = { x:100, y:100, hat:false };
+let state = { x:100, y:100, hat:false, glasses:false, coffee:false, blink:false, bounce:false, wiggle:false, spin:false, zoomies:false, controller:"" };
 
 const lynx = document.getElementById("lynx");
 const box = document.getElementById("box");
+const nameInput = document.getElementById("name");
 
 lynx.onmousedown = () => {
   document.onmousemove = (e) => {
     let rect = box.getBoundingClientRect();
-
     let x = e.clientX - rect.left;
     let y = e.clientY - rect.top;
 
-    // KEEP INSIDE BOX
     x = Math.max(0, Math.min(x, 320));
     y = Math.max(0, Math.min(y, 320));
 
@@ -68,20 +66,25 @@ lynx.onmousedown = () => {
 
     state.x = x;
     state.y = y;
+    state.controller = nameInput.value || "Anonymous";
 
     set(ref(db, "lynx"), state);
   };
-
-  document.onmouseup = () => {
-    document.onmousemove = null;
-  };
+  document.onmouseup = () => { document.onmousemove = null; };
 };
 
-window.toggleHat = () => {
-  state.hat = !state.hat;
+function toggle(item) {
+  state[item] = !state[item];
+  state.controller = nameInput.value || "Anonymous";
   set(ref(db, "lynx"), state);
-};
-</script>
+}
 
+function animate(action) {
+  state[action] = true;
+  state.controller = nameInput.value || "Anonymous";
+  set(ref(db, "lynx"), state);
+  setTimeout(()=>{ state[action]=false; set(ref(db,"lynx"),state); },500);
+}
+</script>
 </body>
 </html>

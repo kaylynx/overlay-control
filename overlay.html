@@ -1,26 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <style>
-    body { margin:0; overflow:hidden; }
-    #lynx {
-      position:absolute;
-      width:150px;
-      left:100px;
-      top:100px;
-    }
-    #hat {
-      position:absolute;
-      width:80px;
-      display:none;
-    }
-  </style>
+<meta charset="UTF-8">
+<style>
+  body { margin:0; overflow:hidden; background:transparent; }
+  #lynx {
+    position:absolute;
+    width:150px;
+    left:100px;
+    top:100px;
+    transition: all 0.2s;
+  }
+  #hat, #glasses, #coffee {
+    position:absolute;
+    width:80px;
+    display:none;
+  }
+  #controllerName {
+    position:absolute;
+    top:10px;
+    left:10px;
+    font-family:sans-serif;
+    font-size:18px;
+    color:#fff;
+    text-shadow: 1px 1px 3px #000;
+  }
+</style>
 </head>
 <body>
 
-<img id="lynx" src="https://via.placeholder.com/150">
+<div id="controllerName"></div>
+<img id="lynx" src="https://kaylynx.github.io/overlay-control/Kaylynx_Eevee.png">
 <img id="hat" src="https://via.placeholder.com/80">
+<img id="glasses" src="https://via.placeholder.com/80">
+<img id="coffee" src="https://via.placeholder.com/80">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
@@ -41,6 +54,9 @@ const db = getDatabase(app);
 
 const lynx = document.getElementById("lynx");
 const hat = document.getElementById("hat");
+const glasses = document.getElementById("glasses");
+const coffee = document.getElementById("coffee");
+const controllerNameEl = document.getElementById("controllerName");
 
 onValue(ref(db, "lynx"), (snapshot) => {
   const data = snapshot.val();
@@ -51,10 +67,44 @@ onValue(ref(db, "lynx"), (snapshot) => {
 
   hat.style.left = (data.x + 30) + "px";
   hat.style.top = (data.y - 40) + "px";
-
   hat.style.display = data.hat ? "block" : "none";
+
+  glasses.style.left = (data.x + 20) + "px";
+  glasses.style.top = (data.y + 20) + "px";
+  glasses.style.display = data.glasses ? "block" : "none";
+
+  coffee.style.left = (data.x - 20) + "px";
+  coffee.style.top = (data.y + 80) + "px";
+  coffee.style.display = data.coffee ? "block" : "none";
+
+  controllerNameEl.innerText = data.controller || "";
+
+  // ANIMATIONS
+  if(data.blink) {
+    lynx.style.transform = "scaleY(0.1)";
+    setTimeout(()=>lynx.style.transform="scaleY(1)",200);
+  }
+  if(data.bounce) {
+    lynx.style.transition="all 0.2s";
+    lynx.style.transform="translateY(-20px)";
+    setTimeout(()=>lynx.style.transform="translateY(0)",200);
+  }
+  if(data.wiggle) {
+    lynx.style.transform="rotate(10deg)";
+    setTimeout(()=>lynx.style.transform="rotate(-10deg)",100);
+    setTimeout(()=>lynx.style.transform="rotate(0deg)",200);
+  }
+  if(data.spin) {
+    lynx.style.transition="transform 0.5s";
+    lynx.style.transform="rotate(360deg)";
+    setTimeout(()=>lynx.style.transform="rotate(0deg)",500);
+  }
+  if(data.zoomies) {
+    lynx.style.transition="all 0.2s";
+    lynx.style.left=(data.x+Math.random()*50-25)+"px";
+    lynx.style.top=(data.y+Math.random()*50-25)+"px";
+  }
 });
 </script>
-
 </body>
 </html>

@@ -3,81 +3,64 @@
 <head>
 <meta charset="UTF-8">
 <style>
-body { margin:0; overflow:hidden; background:transparent; }
-.lynx-wrapper { position:absolute; transition: all 0.1s linear; }
-.lynx-img { position:absolute; top:0; left:0; }
-.controllerName {
-  position:absolute; top:-20px; left:0;
-  font-family:sans-serif; font-size:16px; color:white; text-shadow:1px 1px 3px #000;
-}
+    body { margin:0; overflow:hidden; background:transparent; }
+    #canvas { width: 1920px; height: 1080px; position: relative; }
+    .item-wrapper { position: absolute; transition: transform 0.1s linear; }
+    .name-tag {
+        position: absolute; top: -25px; left: 0;
+        background: rgba(0,0,0,0.6); color: white;
+        padding: 2px 8px; border-radius: 4px; font-family: sans-serif;
+        font-size: 14px; white-space: nowrap;
+    }
 </style>
 </head>
 <body>
-<div id="overlay"></div>
+<div id="canvas"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
-// Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
-  authDomain: "overlay-control-a2c56.firebaseapp.com",
-  databaseURL: "https://overlay-control-a2c56-default-rtdb.firebaseio.com",
-  projectId: "overlay-control-a2c56",
-  storageBucket: "overlay-control-a2c56.firebasestorage.app",
-  messagingSenderId: "511339245584",
-  appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
+    apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
+    authDomain: "overlay-control-a2c56.firebaseapp.com",
+    databaseURL: "https://overlay-control-a2c56-default-rtdb.firebaseio.com",
+    projectId: "overlay-control-a2c56",
+    storageBucket: "overlay-control-a2c56.firebasestorage.app",
+    messagingSenderId: "511339245584",
+    appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const overlay = document.getElementById("overlay");
-const sessions = {}; // Tracks each viewer's Lynx
+const canvas = document.getElementById("canvas");
 
-onValue(ref(db,"lynxSessions"), snapshot => {
-  const data = snapshot.val() || {};
-  console.log("Overlay received data:", data);
+onValue(ref(db, "lynxSessions"), (snapshot) => {
+    canvas.innerHTML = ""; // Clear and redraw
+    const allSessions = snapshot.val() || {};
 
-  // Remove sessions that no longer exist
-  Object.keys(sessions).forEach(id => {
-    if (!data[id]) {
-      overlay.removeChild(sessions[id].wrapper);
-      delete sessions[id];
-    }
-  });
+    Object.entries(allSessions).forEach(([userId, sessionData]) => {
+        if (!sessionData.items) return;
 
-  // Update/create sessions
-  Object.entries(data).forEach(([id, userData]) => {
-    let wrapper = sessions[id]?.wrapper;
-    if(!wrapper){
-      wrapper = document.createElement("div");
-      wrapper.className = "lynx-wrapper";
+        Object.entries(sessionData.items).forEach(([itemId, item]) => {
+            const wrapper = document.createElement("div");
+            wrapper.className = "item-wrapper";
+            wrapper.style.left = item.x + "px";
+            wrapper.style.top = item.y + "px";
 
-      const img = document.createElement("img");
-      img.className = "lynx-img";
-      img.src = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png";
-      
-      const nameEl = document.createElement("div");
-      nameEl.className = "controllerName";
-      
-      wrapper.appendChild(nameEl);
-      wrapper.appendChild(img);
-      overlay.appendChild(wrapper);
+            const img = document.createElement("img");
+            img.src = item.src;
+            img.style.width = item.w + "px";
 
-      sessions[id] = { wrapper, img, nameEl };
-    }
+            const name = document.createElement("div");
+            name.className = "name-tag";
+            name.innerText = sessionData.controller;
 
-    // Position
-    wrapper.style.left = userData.x + "px";
-    wrapper.style.top = userData.y + "px";
-
-    // Size
-    sessions[id].img.style.width = userData.lynxWidth + "px";
-
-    // Name
-    sessions[id].nameEl.innerText = userData.controller || "";
-  });
+            wrapper.appendChild(name);
+            wrapper.appendChild(img);
+            canvas.appendChild(wrapper);
+        });
+    });
 });
 </script>
 </body>

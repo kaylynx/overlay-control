@@ -1,102 +1,160 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<style>
-body { font-family:sans-serif; text-align:center; }
-#box { width:960px; height:540px; border:2px solid black; margin:auto; position:relative; background:#eee; }
-#lynx { width:150px; position:absolute; cursor:grab; left:0; top:0; }
-button { margin:5px; }
-input[type=range]{width:150px;}
-</style>
+    <meta charset="UTF-8">
+    <title>Lynx Controller</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; color: white; text-align: center; }
+        #login-screen { margin-top: 100px; }
+        #box { 
+            width: 960px; height: 540px; border: 3px solid #ecf0f1; 
+            margin: 20px auto; position: relative; background: #34495e;
+            overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .draggable { position: absolute; cursor: move; user-select: none; }
+        .selected { outline: 2px dashed #3498db; }
+        .controls-panel { background: #1a252f; padding: 15px; border-radius: 8px; display: inline-block; }
+        button { padding: 10px 15px; cursor: pointer; border: none; border-radius: 4px; background: #3498db; color: white; margin: 5px; }
+        button:hover { background: #2980b9; }
+        input { padding: 8px; border-radius: 4px; border: none; }
+    </style>
 </head>
 <body>
 
-<h2>Control the Lynx 🐾</h2>
-<label>Password: <input id="passwordInput" type="password" placeholder="Enter password"></label>
-<button id="loginBtn">Enter</button>
-<p id="error" style="color:red;"></p>
+<div id="login-screen">
+    <h2>Enter the Den 🐾</h2>
+    <input id="passwordInput" type="password" placeholder="Password">
+    <button id="loginBtn">Login</button>
+    <p id="error" style="color:#e74c3c;"></p>
+</div>
 
-<div id="controls" style="display:none;">
-  <label>Your Name: <input id="name" placeholder="Viewer Name"></label>
-  <div id="box">
-    <img id="lynx" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png">
-  </div>
-  <h3>Resize</h3>
-  <label>Lynx: <input type="range" id="lynxSize" min="50" max="400" value="150"></label>
+<div id="main-ui" style="display:none;">
+    <h2>Control your Lynx</h2>
+    <div class="controls-panel">
+        <input id="userName" placeholder="Your Name">
+        <button onclick="addItem('https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png')">Add Lynx</button>
+        <!-- Add more buttons here for other accessories -->
+        <button onclick="clearCanvas()" style="background:#e74c3c;">Clear My Items</button>
+    </div>
+    
+    <div id="box"></div>
+
+    <div id="edit-controls" style="margin-top:10px; visibility: hidden;">
+        <label>Size: <input type="range" id="sizeSlider" min="50" max="500" value="150"></label>
+        <button onclick="removeItem()" style="background:#c0392b;">Remove Selected</button>
+    </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+import { getDatabase, ref, set, update, remove } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
-  authDomain: "overlay-control-a2c56.firebaseapp.com",
-  databaseURL: "https://overlay-control-a2c56-default-rtdb.firebaseio.com",
-  projectId: "overlay-control-a2c56",
-  storageBucket: "overlay-control-a2c56.firebasestorage.app",
-  messagingSenderId: "511339245584",
-  appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
+    apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
+    authDomain: "overlay-control-a2c56.firebaseapp.com",
+    databaseURL: "https://overlay-control-a2c56-default-rtdb.firebaseio.com",
+    projectId: "overlay-control-a2c56",
+    storageBucket: "overlay-control-a2c56.firebasestorage.app",
+    messagingSenderId: "511339245584",
+    appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-
-// Session ID for this viewer
 const sessionId = "user_" + Math.random().toString(36).substr(2,9);
-let state = {x:0, y:0, lynxWidth:150, controller:""};
 
 const PASSWORD = "yourpassword123";
-const loginBtn = document.getElementById("loginBtn");
-const passwordInput = document.getElementById("passwordInput");
-const controlsDiv = document.getElementById("controls");
-const errorEl = document.getElementById("error");
+let selectedId = null;
+let sessionData = { controller: "Anonymous", items: {} };
 
-loginBtn.onclick = () => {
-  if(passwordInput.value === PASSWORD){
-    controlsDiv.style.display = "block";
-    passwordInput.style.display = "none";
-    loginBtn.style.display = "none";
-    errorEl.innerText = "";
-  } else { errorEl.innerText = "Incorrect password!"; }
-};
-
-const lynx = document.getElementById("lynx");
+// UI Elements
 const box = document.getElementById("box");
-const nameInput = document.getElementById("name");
+const sizeSlider = document.getElementById("sizeSlider");
 
-const overlayWidth = 1920;
-const overlayHeight = 1080;
-const controlBoxWidth = 960;
-const controlBoxHeight = 540;
-const scaleX = overlayWidth / controlBoxWidth;
-const scaleY = overlayHeight / controlBoxHeight;
-
-// Drag
-lynx.onmousedown = () => {
-  document.onmousemove = e => {
-    let rect = box.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    let y = e.clientY - rect.top;
-    x = Math.max(0, Math.min(x, controlBoxWidth - lynx.offsetWidth));
-    y = Math.max(0, Math.min(y, controlBoxHeight - lynx.offsetHeight));
-    lynx.style.left = x + "px";
-    lynx.style.top = y + "px";
-
-    state.x = x * scaleX;
-    state.y = y * scaleY;
-    state.controller = nameInput.value || "Anonymous";
-    set(ref(db,"lynxSessions/"+sessionId),state);
-  };
-  document.onmouseup = () => { document.onmousemove = null; };
+// Login Logic
+document.getElementById("loginBtn").onclick = () => {
+    if(document.getElementById("passwordInput").value === PASSWORD){
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("main-ui").style.display = "block";
+    } else { document.getElementById("error").innerText = "Wrong password!"; }
 };
 
-// Resize
-document.getElementById("lynxSize").oninput = e => {
-  state.lynxWidth = parseInt(e.target.value);
-  state.controller = nameInput.value || "Anonymous";
-  set(ref(db,"lynxSessions/"+sessionId),state);
+// Add Item
+window.addItem = (url) => {
+    const itemId = "item_" + Date.now();
+    sessionData.items[itemId] = {
+        src: url,
+        x: 50, y: 50,
+        w: 150
+    };
+    sessionData.controller = document.getElementById("userName").value || "Anonymous";
+    sync();
+    render();
 };
+
+window.clearCanvas = () => {
+    remove(ref(db, "lynxSessions/" + sessionId));
+    sessionData.items = {};
+    render();
+};
+
+window.removeItem = () => {
+    if(selectedId) {
+        delete sessionData.items[selectedId];
+        selectedId = null;
+        sync();
+        render();
+    }
+};
+
+function sync() {
+    set(ref(db, "lynxSessions/" + sessionId), sessionData);
+}
+
+function render() {
+    box.innerHTML = "";
+    Object.entries(sessionData.items).forEach(([id, data]) => {
+        const img = document.createElement("img");
+        img.src = data.src;
+        img.className = "draggable" + (selectedId === id ? " selected" : "");
+        img.style.left = (data.x / 2) + "px"; // Visual scaling for 960px box
+        img.style.top = (data.y / 2) + "px";
+        img.style.width = (data.w / 2) + "px";
+        
+        img.onmousedown = (e) => {
+            selectedId = id;
+            document.getElementById("edit-controls").style.visibility = "visible";
+            sizeSlider.value = data.w;
+            
+            let shiftX = e.clientX - img.getBoundingClientRect().left;
+            let shiftY = e.clientY - img.getBoundingClientRect().top;
+
+            document.onmousemove = (ev) => {
+                let x = ev.clientX - box.getBoundingClientRect().left - shiftX;
+                let y = ev.clientY - box.getBoundingClientRect().top - shiftY;
+                
+                // Update Local Data
+                sessionData.items[id].x = x * 2; // Map back to 1920 scale
+                sessionData.items[id].y = y * 2;
+                render();
+            };
+            
+            document.onmouseup = () => {
+                document.onmousemove = null;
+                sync();
+            };
+        };
+        box.appendChild(img);
+    });
+}
+
+sizeSlider.oninput = (e) => {
+    if(selectedId) {
+        sessionData.items[selectedId].w = parseInt(e.target.value);
+        render();
+    }
+};
+sizeSlider.onchange = () => sync();
 </script>
 </body>
 </html>

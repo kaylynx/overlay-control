@@ -5,11 +5,11 @@
     <style>
         body { margin:0; overflow:hidden; background:transparent; }
         #overlay-container { width: 100vw; height: 100vh; position: relative; }
-        .user-item { position: absolute; transform-origin: center; translate: -50% -50%; }
+        .user-item { position: absolute; transform: translate(-50%, -50%); transform-origin: center; }
         .name-tag { 
-            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); color: white; padding: 2px 8px; 
-            border-radius: 4px; font-family: sans-serif; font-size: 12px; white-space: nowrap;
+            position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 2px 10px; 
+            border-radius: 4px; font-family: sans-serif; font-size: 14px; white-space: nowrap;
         }
         #drawLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     </style>
@@ -66,12 +66,12 @@ onValue(ref(db, "lynxSessions"), (snap) => {
 
             const img = document.createElement('img');
             img.src = item.src;
-            img.style.width = item.w + "vw"; // Responsive width
+            img.style.width = item.w + "vw";
             img.style.transform = `scaleX(${item.flip || 1})`;
 
             const name = document.createElement('div');
             name.className = 'name-tag';
-            name.innerText = session.controller || "";
+            name.innerText = session.controller || "Guest";
 
             div.appendChild(name);
             div.appendChild(img);
@@ -80,16 +80,19 @@ onValue(ref(db, "lynxSessions"), (snap) => {
     });
 });
 
-// Drawing Loop
+// Line-based Drawing Loop
 onValue(ref(db, 'drawings'), (snap) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const data = snap.val();
     if(!data) return;
-    Object.values(data).forEach(p => {
-        ctx.fillStyle = p.color;
+    Object.values(data).forEach(line => {
+        ctx.strokeStyle = line.color;
+        ctx.lineWidth = (line.width / 100) * canvas.width; // Scale thickness
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc((p.x/100) * canvas.width, (p.y/100) * canvas.height, 5, 0, Math.PI*2);
-        ctx.fill();
+        ctx.moveTo((line.x1 / 100) * canvas.width, (line.y1 / 100) * canvas.height);
+        ctx.lineTo((line.x2 / 100) * canvas.width, (line.y2 / 100) * canvas.height);
+        ctx.stroke();
     });
 });
 
@@ -98,7 +101,7 @@ onChildAdded(ref(db, 'triggers'), (snapshot) => {
     const trigger = snapshot.val();
     if (Date.now() - trigger.time < 2000) {
         const s = sounds[trigger.type];
-        if (s) { s.currentTime = 0; s.play().catch(e => console.log("Click the overlay to enable sound!")); }
+        if (s) { s.currentTime = 0; s.play().catch(e => console.log("Enable sound by interacting with overlay!")); }
     }
 });
 </script>

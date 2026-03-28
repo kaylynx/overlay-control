@@ -2,14 +2,14 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Lynx Super Controller</title>
+    <title>Lynx Super Controller: Chaos Edition</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        #sidebar { width: 300px; background: #2c2c2c; padding: 15px; overflow-y: auto; border-right: 2px solid #444; z-index: 10; }
+        #sidebar { width: 320px; background: #2c2c2c; padding: 15px; overflow-y: auto; border-right: 2px solid #444; z-index: 10; }
         #main-stage { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; position: relative; }
         #box-container { width: 85%; max-width: 960px; aspect-ratio: 16 / 9; position: relative; border: 2px solid #555; background: #333; }
         #box { width: 100%; height: 100%; position: relative; overflow: hidden; cursor: crosshair; }
-        .draggable { position: absolute; cursor: move; transform: translate(-50%, -50%); transform-origin: center; }
+        .draggable { position: absolute; cursor: move; transform: translate(-50%, -50%); transform-origin: center; transition: transform 0.1s; }
         .selected { outline: 2px solid #00ffcc; z-index: 1000 !important; }
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px; }
         button { padding: 8px; cursor: pointer; background: #444; color: white; border: 1px solid #666; border-radius: 4px; font-size: 10px; text-transform: capitalize; }
@@ -19,6 +19,7 @@
         .color-circle { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; display: inline-block; margin: 2px; }
         #edit-panel { background: #222; padding: 15px; width: 100%; display: flex; gap: 20px; align-items: center; border-top: 1px solid #444; justify-content: center; position: absolute; bottom: 0; }
         #login-screen { position: fixed; inset: 0; background: #1a1a1a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .stat-box { background: #222; padding: 5px 10px; border-radius: 5px; border: 1px solid #444; text-align: center; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -31,26 +32,36 @@
 
 <div id="sidebar">
     <div id="admin-section">
-        <h3 style="color:#ff4444; margin-top:0;">Admin Tools</h3>
+        <h3 style="color:#ff4444; margin-top:0;">Admin Chaos</h3>
+        <button onclick="triggerEffect('screenshake')" style="width:100%; background:#f80; margin-bottom:5px;">🫨 Screenshake</button>
+        <button onclick="triggerEffect('party')" style="width:100%; background:#f0f; margin-bottom:5px;">🎉 Party Mode</button>
+        <button onclick="toggleRainbow()" id="rainbowBtn" style="width:100%; background:#444; margin-bottom:5px;">🌈 Rainbow Mode: OFF</button>
+        <hr style="border:0; border-top:1px solid #622;">
         <button onclick="clearAllAccessories()" style="width:100%; background:#822; margin-bottom:5px;">☢️ Nuke All Items</button>
         <button onclick="clearDrawings()" style="width:100%; background:#611;">Reset Whiteboard</button>
+    </div>
+
+    <div class="stat-box">
+        ❤️ Total Pets: <span id="petCountDisplay" style="color:#00ffcc; font-weight:bold;">0</span>
     </div>
 
     <h3>Closet</h3>
     <div class="btn-grid" id="accessory-list"></div>
 
-    <h3>Pen Settings</h3>
+    <h3>Pen & Tools</h3>
     <div>
         <div class="color-circle" style="background:#ff00ff" onclick="setPenColor('#ff00ff')"></div>
         <div class="color-circle" style="background:#00ffcc" onclick="setPenColor('#00ffcc')"></div>
         <div class="color-circle" style="background:#ffff00" onclick="setPenColor('#ffff00')"></div>
         <input type="color" id="customColor" onchange="setPenColor(this.value)" style="width:25px; height:25px; vertical-align:middle;">
     </div>
-    <label style="font-size:11px;">Size: <input type="range" id="penWidth" min="1" max="25" value="8" style="width:100%"></label>
+    <label style="font-size:11px;">Pen Size: <input type="range" id="penWidth" min="1" max="25" value="8" style="width:100%"></label>
     
     <div class="btn-grid" style="margin-top:10px;">
         <button id="penBtn" onclick="setMode('pen')">🖌️ Draw</button>
         <button id="moveBtn" onclick="setMode('move')" class="active">🖱️ Move</button>
+        <button id="bonkBtn" onclick="setMode('bonk')">🔨 Bonk!</button>
+        <button onclick="petTheLynx()" style="background:#522;">❤️ Pet Lynx</button>
         <button onclick="undoDrawing()" style="grid-column: span 2; background: #333;">↩️ Undo Last Stroke</button>
     </div>
 
@@ -60,7 +71,7 @@
 
 <div id="main-stage">
     <div style="margin-bottom:10px; text-align:center;">
-        <label>Your Name: </label>
+        <label>Name Lock: </label>
         <input id="userName" placeholder="Twitch Name..." style="padding:8px; background:#222; border:1px solid #444; color:white; border-radius:5px;">
     </div>
     <div id="box-container">
@@ -72,7 +83,7 @@
         <button onclick="toggleFlip()">Flip ↔️</button>
         <button onclick="bringToFront()">Bring to Front 🔝</button>
         <div id="resize-container" style="display:none; align-items:center; gap:10px;">
-            <label style="font-size:11px;">Item Size:</label>
+            <label style="font-size:11px;">Size:</label>
             <input type="range" id="itemSizeSlider" min="5" max="50" oninput="resizeItem(this.value)">
         </div>
         <button onclick="removeItem()" style="background:#8b0000;">Remove Selected</button>
@@ -81,7 +92,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, push, remove, query, limitToLast, get, update } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, push, remove, query, limitToLast, get, update, increment } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
@@ -99,14 +110,12 @@ const sessionId = "user_" + Math.random().toString(36).substr(2,9);
 const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/";
 
 const files = ['Kaylynx_Eevee.png', '8bit.png', 'aviators.png', 'blackheart.png', 'cateye.png', 'cowboy.png', 'jester.png', 'party.png', 'pinkheart.png', 'pirate.png', 'santa.png', 'shades.png', 'sunhat.png', 'witch.png'];
-
-// Sound files with custom display names
 const soundMap = {
     "crab-rave-(copy)-made-with-Voicemod.mp3": "Crab Rave",
     "turn-the-lights-off-v2--short-made-with-Voicemod.mp3": "Turn The Lights Off",
     "whatcha-say-_short_-(hide-and-seek-made-with-Voicemod.mp3": "Whatcha Say",
     "two-hours-later-(spongebob)-quicksounds-made-with-Voicemod.mp3": "Two Hours Later",
-    "star-wars-cantina-made-with-Voicemod.mp3": "Star Wars Cantina",
+    "star-wars-cantina-made-with-Voicemod.mp3": "Star Wars",
     "bruh-made-with-Voicemod.mp3": "Bruh",
     "navi-hey-made-with-Voicemod.mp3": "Navi Hey",
     "meow-deep-made-with-Voicemod.mp3": "Deep Meow",
@@ -124,6 +133,7 @@ let mode = 'move';
 let isDrawing = false;
 let currentPenColor = '#ff00ff';
 let lastPoint = null;
+let rainbowActive = false;
 
 document.getElementById('loginBtn').onclick = () => {
     const pass = document.getElementById('passwordInput').value;
@@ -133,6 +143,7 @@ document.getElementById('loginBtn').onclick = () => {
     }
 };
 
+// Populate Lists
 const accessoryList = document.getElementById('accessory-list');
 files.forEach(f => {
     const b = document.createElement('button');
@@ -145,42 +156,39 @@ const soundGrid = document.getElementById('sound-grid');
 Object.entries(soundMap).forEach(([file, label]) => {
     const b = document.createElement('button');
     b.innerText = label;
-    b.onclick = () => push(ref(db, 'triggers'), { type: file, time: Date.now() });
+    b.onclick = () => push(ref(db, 'triggers'), { type: 'sound', file: file, time: Date.now() });
     soundGrid.appendChild(b);
 });
 
+// Chaos Functions
+window.triggerEffect = (name) => set(ref(db, 'effects/trigger'), { name: name, time: Date.now() });
+window.toggleRainbow = () => {
+    rainbowActive = !rainbowActive;
+    set(ref(db, 'effects/rainbow'), rainbowActive);
+    document.getElementById('rainbowBtn').innerText = `🌈 Rainbow Mode: ${rainbowActive ? 'ON' : 'OFF'}`;
+};
+window.petTheLynx = () => {
+    update(ref(db, 'stats'), { pets: increment(1) });
+    triggerEffect('heart');
+};
+onValue(ref(db, 'stats/pets'), (snap) => { document.getElementById('petCountDisplay').innerText = snap.val() || 0; });
+
 window.addItem = (url) => {
     const nameInput = document.getElementById('userName');
-    if(!nameInput.value.trim()) { alert("Please enter your name first!"); return; }
-    nameInput.disabled = true;
-    nameInput.style.opacity = "0.5";
+    if(!nameInput.value.trim()) { alert("Enter your name first!"); return; }
+    nameInput.disabled = true; nameInput.style.opacity = "0.5";
     const id = "item_" + Date.now();
     sessionData.items[id] = { src: url, x: 50, y: 50, w: 15, flip: 1, z: 10 };
     sessionData.controller = nameInput.value;
     sync();
 };
 
-window.removeItem = () => {
-    if(selectedId && sessionData.items[selectedId]) {
-        delete sessionData.items[selectedId];
-        selectedId = null;
-        document.getElementById('resize-container').style.display = 'none';
-        sync();
-    }
-};
-
-window.resizeItem = (val) => {
-    if(selectedId && sessionData.items[selectedId]) {
-        sessionData.items[selectedId].w = val;
-        sync();
-    }
-};
-
+window.removeItem = () => { if(selectedId) { delete sessionData.items[selectedId]; selectedId = null; document.getElementById('resize-container').style.display='none'; sync(); }};
+window.resizeItem = (val) => { if(selectedId) { sessionData.items[selectedId].w = val; sync(); }};
 window.toggleFlip = () => { if(selectedId) { sessionData.items[selectedId].flip *= -1; sync(); }};
 window.bringToFront = () => { if(selectedId) { 
     const maxZ = Math.max(...Object.values(sessionData.items).map(i => i.z || 0), 10);
-    sessionData.items[selectedId].z = maxZ + 1; 
-    sync();
+    sessionData.items[selectedId].z = maxZ + 1; sync(); 
 }};
 
 window.clearAllAccessories = () => { if(confirm("Nuke ALL items?")) remove(ref(db, 'lynxSessions')); };
@@ -195,7 +203,12 @@ window.undoDrawing = async () => {
     }
 };
 
-window.setMode = (m) => { mode = m; document.getElementById('penBtn').className = m === 'pen' ? 'active' : ''; document.getElementById('moveBtn').className = m === 'move' ? 'active' : ''; };
+window.setMode = (m) => { 
+    mode = m; 
+    document.getElementById('penBtn').className = m === 'pen' ? 'active' : ''; 
+    document.getElementById('moveBtn').className = m === 'move' ? 'active' : ''; 
+    document.getElementById('bonkBtn').className = m === 'bonk' ? 'active' : ''; 
+};
 window.setPenColor = (c) => { currentPenColor = c; };
 
 function sync() { set(ref(db, `lynxSessions/${sessionId}`), sessionData); }
@@ -211,10 +224,6 @@ box.onmousedown = (e) => {
         isDrawing = true; 
         const rect = box.getBoundingClientRect(); 
         lastPoint = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 }; 
-    } else {
-        selectedId = null;
-        document.getElementById('resize-container').style.display = 'none';
-        render();
     }
 };
 
@@ -250,9 +259,13 @@ function render() {
         img.style.left = data.x + "%"; img.style.top = data.y + "%"; img.style.width = data.w + "%";
         img.style.zIndex = data.z; img.style.transform = `translate(-50%, -50%) scaleX(${data.flip})`;
         img.onmousedown = (e) => {
+            e.stopPropagation();
+            if(mode === 'bonk') {
+                push(ref(db, 'triggers'), { type: 'bonk', targetId: id, time: Date.now() });
+                return;
+            }
             if(mode !== 'move') return;
-            e.stopPropagation(); selectedId = id;
-            document.getElementById('resize-container').style.display = 'flex';
+            selectedId = id; document.getElementById('resize-container').style.display = 'flex';
             document.getElementById('itemSizeSlider').value = data.w;
             document.onmousemove = (ev) => {
                 const rect = box.getBoundingClientRect();

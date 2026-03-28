@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <style>
         body { margin:0; overflow:hidden; background:transparent; }
-        #overlay-container { width: 100vw; height: 100vh; position: relative; }
-        .user-item { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+        #overlay-container { width: 100vw; height: 100vh; position: relative; transition: filter 0.3s; }
+        .user-item { position: absolute; transform: translate(-50%, -50%); pointer-events: none; transition: top 0.1s, left 0.1s; }
         .name-tag { 
             position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.8); color: #00ffcc; padding: 2px 10px; 
@@ -13,6 +13,33 @@
             font-weight: bold; text-shadow: 1px 1px 2px black;
         }
         #drawLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
+
+        /* ANIMATIONS */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            40% { transform: translate(3px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-active { animation: shake 0.3s infinite; }
+
+        @keyframes rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+        .rainbow-active .user-item img { animation: rainbow 3s linear infinite; }
+
+        @keyframes bonked {
+            0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+            50% { transform: translate(-50%, -50%) scale(1.8) rotate(180deg); filter: brightness(2); }
+            100% { transform: translate(-50%, -50%) scale(1) rotate(360deg); }
+        }
+        .is-bonked { animation: bonked 0.6s ease-out !important; }
+
+        @keyframes heartpop {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(1) translateY(-100px); opacity: 0; }
+        }
+        .heart { position: absolute; font-size: 50px; animation: heartpop 1s forwards; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -42,6 +69,7 @@ const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.onresize = resize; resize();
 
+// Main Sync
 onValue(ref(db, "lynxSessions"), (snap) => {
     document.querySelectorAll('.user-item').forEach(e => e.remove());
     const data = snap.val() || {};
@@ -49,40 +77,61 @@ onValue(ref(db, "lynxSessions"), (snap) => {
         if (!session.items) return;
         Object.entries(session.items).forEach(([id, item]) => {
             const div = document.createElement('div');
-            div.className = 'user-item';
+            div.className = 'user-item'; div.setAttribute('data-id', id);
             div.style.left = item.x + "%"; div.style.top = item.y + "%";
             div.style.zIndex = item.z || 10;
             const img = document.createElement('img');
-            img.src = item.src;
-            img.style.width = item.w + "vw";
+            img.src = item.src; img.style.width = item.w + "vw";
             img.style.transform = `scaleX(${item.flip || 1})`;
             const name = document.createElement('div');
-            name.className = 'name-tag';
-            name.innerText = session.controller || "Guest";
+            name.className = 'name-tag'; name.innerText = session.controller || "";
             div.appendChild(name); div.appendChild(img); container.appendChild(div);
         });
     });
 });
 
+// Drawings
 onValue(ref(db, 'drawings'), (snap) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const data = snap.val(); if(!data) return;
     Object.values(data).forEach(line => {
-        ctx.strokeStyle = line.color;
-        ctx.lineWidth = (line.width / 100) * canvas.width;
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo((line.x1 / 100) * canvas.width, (line.y1 / 100) * canvas.height);
-        ctx.lineTo((line.x2 / 100) * canvas.width, (line.y2 / 100) * canvas.height);
-        ctx.stroke();
+        ctx.strokeStyle = line.color; ctx.lineWidth = (line.width / 100) * canvas.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo((line.x1 / 100) * canvas.width, (line.y1 / 100) * canvas.height);
+        ctx.lineTo((line.x2 / 100) * canvas.width, (line.y2 / 100) * canvas.height); ctx.stroke();
     });
 });
 
+// Global Effects
+onValue(ref(db, 'effects/trigger'), (snap) => {
+    const data = snap.val(); if(!data || Date.now() - data.time > 2000) return;
+    if(data.name === 'screenshake') {
+        container.classList.add('shake-active');
+        setTimeout(() => container.classList.remove('shake-active'), 1500);
+    }
+    if(data.name === 'heart') {
+        const h = document.createElement('div'); h.className = 'heart'; h.innerText = '❤️';
+        h.style.left = Math.random() * 80 + 10 + "%"; h.style.top = "70%";
+        container.appendChild(h); setTimeout(() => h.remove(), 1000);
+    }
+});
+
+onValue(ref(db, 'effects/rainbow'), (snap) => {
+    if(snap.val()) container.classList.add('rainbow-active');
+    else container.classList.remove('rainbow-active');
+});
+
+// Sound & Bonk Triggers
 onChildAdded(ref(db, 'triggers'), (snapshot) => {
-    const trigger = snapshot.val();
-    if (Date.now() - trigger.time < 2000) {
-        const s = new Audio(baseUrl + trigger.type);
-        s.play().catch(e => console.log("Audio Blocked."));
+    const t = snapshot.val();
+    if (Date.now() - t.time < 2000) {
+        if(t.type === 'sound') {
+            new Audio(baseUrl + t.file).play().catch(e => console.log("Blocked"));
+        }
+        if(t.type === 'bonk') {
+            const el = document.querySelector(`[data-id="${t.targetId}"]`);
+            if(el) { el.classList.add('is-bonked'); setTimeout(() => el.classList.remove('is-bonked'), 600); }
+            new Audio('https://assets.mixkit.co/active_storage/sfx/1344/1344-preview.mp3').play();
+        }
     }
 });
 </script>

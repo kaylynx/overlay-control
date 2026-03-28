@@ -71,7 +71,6 @@
 
 <div id="main-stage">
     <div style="margin-bottom:10px; text-align:center;">
-        <label>Name Lock: </label>
         <input id="userName" placeholder="Twitch Name..." style="padding:8px; background:#222; border:1px solid #444; color:white; border-radius:5px;">
     </div>
     <div id="box-container">
@@ -112,15 +111,15 @@ const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/
 const files = ['Kaylynx_Eevee.png', '8bit.png', 'aviators.png', 'blackheart.png', 'cateye.png', 'cowboy.png', 'jester.png', 'party.png', 'pinkheart.png', 'pirate.png', 'santa.png', 'shades.png', 'sunhat.png', 'witch.png'];
 const soundMap = {
     "crab-rave-(copy)-made-with-Voicemod.mp3": "Crab Rave",
-    "turn-the-lights-off-v2--short-made-with-Voicemod.mp3": "Turn The Lights Off",
+    "turn-the-lights-off-v2--short-made-with-Voicemod.mp3": "Lights Off",
     "whatcha-say-_short_-(hide-and-seek-made-with-Voicemod.mp3": "Whatcha Say",
-    "two-hours-later-(spongebob)-quicksounds-made-with-Voicemod.mp3": "Two Hours Later",
+    "two-hours-later-(spongebob)-quicksounds-made-with-Voicemod.mp3": "2 Hours Later",
     "star-wars-cantina-made-with-Voicemod.mp3": "Star Wars",
     "bruh-made-with-Voicemod.mp3": "Bruh",
     "navi-hey-made-with-Voicemod.mp3": "Navi Hey",
     "meow-deep-made-with-Voicemod.mp3": "Deep Meow",
     "roblox-bye-wave-made-with-Voicemod.mp3": "Roblox Bye",
-    "emotional-damage-made-with-Voicemod.mp3": "Emotional Damage",
+    "emotional-damage-made-with-Voicemod.mp3": "Emo Damage",
     "lizard-made-with-Voicemod.mp3": "Lizard",
     "tickles-my-balls-made-with-Voicemod.mp3": "Tickles",
     "objection!-made-with-Voicemod.mp3": "Objection!",
@@ -137,10 +136,8 @@ let rainbowActive = false;
 
 document.getElementById('loginBtn').onclick = () => {
     const pass = document.getElementById('passwordInput').value;
-    if(pass === "yourpassword123" || pass === "admin123") {
-        document.getElementById('login-screen').style.display = "none";
-        if(pass === "admin123") document.getElementById('admin-section').style.display = "block";
-    }
+    if(pass === "admin123") document.getElementById('admin-section').style.display = "block";
+    document.getElementById('login-screen').style.display = "none";
 };
 
 const accessoryList = document.getElementById('accessory-list');
@@ -167,7 +164,7 @@ window.toggleRainbow = () => {
 };
 window.petTheLynx = () => {
     update(ref(db, 'stats'), { pets: increment(1) });
-    triggerEffect('heart');
+    push(ref(db, 'effects/events'), { name: 'headpat', targetSession: sessionId, time: Date.now() });
 };
 onValue(ref(db, 'stats/pets'), (snap) => { document.getElementById('petCountDisplay').innerText = snap.val() || 0; });
 

@@ -5,7 +5,7 @@
 <style>
 body { font-family:sans-serif; text-align:center; }
 #box { width:960px; height:540px; border:2px solid black; margin:auto; position:relative; background:#eee; }
-#lynx { width:80px; position:absolute; cursor:grab; left:0; top:0; }
+#lynx { width:150px; position:absolute; cursor:grab; left:0; top:0; }
 button { margin:5px; }
 input[type=range]{width:150px;}
 </style>
@@ -22,12 +22,6 @@ input[type=range]{width:150px;}
   <div id="box">
     <img id="lynx" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png">
   </div>
-  <h3>Animations</h3>
-  <button onclick="animate('blink')">Blink</button>
-  <button onclick="animate('bounce')">Bounce</button>
-  <button onclick="animate('wiggle')">Wiggle</button>
-  <button onclick="animate('spin')">Spin</button>
-  <button onclick="animate('zoomies')">Zoomies</button>
   <h3>Resize</h3>
   <label>Lynx: <input type="range" id="lynxSize" min="50" max="400" value="150"></label>
 </div>
@@ -48,10 +42,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Generate a random session ID
+// Session ID for this viewer
 const sessionId = "user_" + Math.random().toString(36).substr(2,9);
-
-let state = {x:0, y:0, lynxWidth:150, blink:false, bounce:false, wiggle:false, spin:false, zoomies:false, controller:""};
+let state = {x:0, y:0, lynxWidth:150, controller:""};
 
 const PASSWORD = "yourpassword123";
 const loginBtn = document.getElementById("loginBtn");
@@ -79,6 +72,7 @@ const controlBoxHeight = 540;
 const scaleX = overlayWidth / controlBoxWidth;
 const scaleY = overlayHeight / controlBoxHeight;
 
+// Drag
 lynx.onmousedown = () => {
   document.onmousemove = e => {
     let rect = box.getBoundingClientRect();
@@ -88,17 +82,21 @@ lynx.onmousedown = () => {
     y = Math.max(0, Math.min(y, controlBoxHeight - lynx.offsetHeight));
     lynx.style.left = x + "px";
     lynx.style.top = y + "px";
+
     state.x = x * scaleX;
     state.y = y * scaleY;
-    state.controller = nameInput.value||"Anonymous";
+    state.controller = nameInput.value || "Anonymous";
     set(ref(db,"lynxSessions/"+sessionId),state);
   };
   document.onmouseup = () => { document.onmousemove = null; };
 };
 
-function animate(action){ state[action]=true; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynxSessions/"+sessionId),state); setTimeout(()=>{state[action]=false; set(ref(db,"lynxSessions/"+sessionId),state);},500); }
-document.getElementById("lynxSize").oninput = e => { state.lynxWidth=parseInt(e.target.value); state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynxSessions/"+sessionId),state); }
-
+// Resize
+document.getElementById("lynxSize").oninput = e => {
+  state.lynxWidth = parseInt(e.target.value);
+  state.controller = nameInput.value || "Anonymous";
+  set(ref(db,"lynxSessions/"+sessionId),state);
+};
 </script>
 </body>
 </html>

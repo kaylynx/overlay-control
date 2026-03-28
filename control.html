@@ -4,16 +4,10 @@
 <meta charset="UTF-8">
 <style>
 body { font-family:sans-serif; text-align:center; }
-#box {
-  width:960px;   /* half of 1920 for easier drag */
-  height:540px;  /* half of 1080 */
-  border:2px solid black;
-  margin:auto;
-  position:relative;
-  background:#eee;
-}
-#lynx { width:80px; position:absolute; cursor:grab; left:0px; top:0px; }
+#box { width:960px; height:540px; border:2px solid black; margin:auto; position:relative; background:#eee; }
+#lynx { width:80px; position:absolute; cursor:grab; left:0; top:0; }
 button { margin:5px; }
+input[type=range]{width:150px;}
 </style>
 </head>
 <body>
@@ -36,6 +30,12 @@ button { margin:5px; }
 <button onclick="animate('spin')">Spin</button>
 <button onclick="animate('zoomies')">Zoomies</button>
 
+<h3>Resize</h3>
+<label>Lynx: <input type="range" id="lynxSize" min="50" max="400" value="150"></label><br>
+<label>Hat: <input type="range" id="hatSize" min="30" max="150" value="80"></label><br>
+<label>Glasses: <input type="range" id="glassesSize" min="30" max="150" value="80"></label><br>
+<label>Coffee: <input type="range" id="coffeeSize" min="30" max="150" value="80"></label>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
@@ -53,7 +53,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-let state = { x:0, y:0, hat:false, glasses:false, coffee:false, blink:false, bounce:false, wiggle:false, spin:false, zoomies:false, controller:"" };
+let state = { x:0, y:0, lynxWidth:150, hat:false, hatWidth:80, glasses:false, glassesWidth:80, coffee:false, coffeeWidth:80, blink:false, bounce:false, wiggle:false, spin:false, zoomies:false, controller:"" };
 
 const lynx = document.getElementById("lynx");
 const box = document.getElementById("box");
@@ -71,7 +71,6 @@ lynx.onmousedown = () => {
     let rect = box.getBoundingClientRect();
     let x = e.clientX - rect.left;
     let y = e.clientY - rect.top;
-
     x = Math.max(0, Math.min(x, controlBoxWidth - lynx.offsetWidth));
     y = Math.max(0, Math.min(y, controlBoxHeight - lynx.offsetHeight));
 
@@ -81,24 +80,19 @@ lynx.onmousedown = () => {
     state.x = x * scaleX;
     state.y = y * scaleY;
     state.controller = nameInput.value || "Anonymous";
-
     set(ref(db, "lynx"), state);
   };
   document.onmouseup = () => { document.onmousemove = null; };
 };
 
-function toggle(item) {
-  state[item] = !state[item];
-  state.controller = nameInput.value || "Anonymous";
-  set(ref(db, "lynx"), state);
-}
+function toggle(item){ state[item]=!state[item]; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state); }
+function animate(action){ state[action]=true; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state); setTimeout(()=>{state[action]=false; set(ref(db,"lynx"),state);},500); }
 
-function animate(action) {
-  state[action] = true;
-  state.controller = nameInput.value || "Anonymous";
-  set(ref(db, "lynx"), state);
-  setTimeout(()=>{ state[action]=false; set(ref(db,"lynx"),state); },500);
-}
+// Resize sliders
+document.getElementById("lynxSize").oninput = e => { state.lynxWidth=e.target.value; set(ref(db,"lynx"),state); };
+document.getElementById("hatSize").oninput = e => { state.hatWidth=e.target.value; set(ref(db,"lynx"),state); };
+document.getElementById("glassesSize").oninput = e => { state.glassesWidth=e.target.value; set(ref(db,"lynx"),state); };
+document.getElementById("coffeeSize").oninput = e => { state.coffeeWidth=e.target.value; set(ref(db,"lynx"),state); };
 </script>
 </body>
 </html>

@@ -4,18 +4,8 @@
 <meta charset="UTF-8">
 <style>
   body { margin:0; overflow:hidden; background:transparent; }
-  #lynx {
-    position:absolute;
-    width:150px;
-    left:0px;
-    top:0px;
-    transition: all 0.2s;
-  }
-  #hat, #glasses, #coffee {
-    position:absolute;
-    width:80px;
-    display:none;
-  }
+  #lynx { position:absolute; left:0; top:0; width:150px; transition: all 0.2s; }
+  #hat, #glasses, #coffee { position:absolute; display:none; transition: all 0.2s; }
   #controllerName {
     position:absolute;
     top:10px;
@@ -31,9 +21,9 @@
 
 <div id="controllerName"></div>
 <img id="lynx" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png">
-<img id="hat" src="https://via.placeholder.com/80">
-<img id="glasses" src="https://via.placeholder.com/80">
-<img id="coffee" src="https://via.placeholder.com/80">
+<img id="hat" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Hat.png">
+<img id="glasses" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Glasses.png">
+<img id="coffee" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Coffee.png">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
@@ -62,6 +52,7 @@ onValue(ref(db, "lynx"), (snapshot) => {
   const data = snapshot.val();
   if (!data) return;
 
+  // Position
   lynx.style.left = data.x + "px";
   lynx.style.top = data.y + "px";
 
@@ -77,33 +68,21 @@ onValue(ref(db, "lynx"), (snapshot) => {
   coffee.style.top = (data.y + 80) + "px";
   coffee.style.display = data.coffee ? "block" : "none";
 
+  // Size
+  if(data.lynxWidth) lynx.style.width = data.lynxWidth + "px";
+  if(data.hatWidth) hat.style.width = data.hatWidth + "px";
+  if(data.glassesWidth) glasses.style.width = data.glassesWidth + "px";
+  if(data.coffeeWidth) coffee.style.width = data.coffeeWidth + "px";
+
+  // Controller name
   controllerNameEl.innerText = data.controller || "";
 
-  // ANIMATIONS
-  if(data.blink) {
-    lynx.style.transform = "scaleY(0.1)";
-    setTimeout(()=>lynx.style.transform="scaleY(1)",200);
-  }
-  if(data.bounce) {
-    lynx.style.transition="all 0.2s";
-    lynx.style.transform="translateY(-20px)";
-    setTimeout(()=>lynx.style.transform="translateY(0)",200);
-  }
-  if(data.wiggle) {
-    lynx.style.transform="rotate(10deg)";
-    setTimeout(()=>lynx.style.transform="rotate(-10deg)",100);
-    setTimeout(()=>lynx.style.transform="rotate(0deg)",200);
-  }
-  if(data.spin) {
-    lynx.style.transition="transform 0.5s";
-    lynx.style.transform="rotate(360deg)";
-    setTimeout(()=>lynx.style.transform="rotate(0deg)",500);
-  }
-  if(data.zoomies) {
-    lynx.style.transition="all 0.2s";
-    lynx.style.left=(data.x+Math.random()*50-25)+"px";
-    lynx.style.top=(data.y+Math.random()*50-25)+"px";
-  }
+  // Animations
+  if(data.blink){ lynx.style.transform="scaleY(0.1)"; setTimeout(()=>lynx.style.transform="scaleY(1)",200); }
+  if(data.bounce){ lynx.style.transform="translateY(-20px)"; setTimeout(()=>lynx.style.transform="translateY(0)",200); }
+  if(data.wiggle){ lynx.style.transform="rotate(10deg)"; setTimeout(()=>lynx.style.transform="rotate(-10deg)",100); setTimeout(()=>lynx.style.transform="rotate(0deg)",200); }
+  if(data.spin){ lynx.style.transform="rotate(360deg)"; setTimeout(()=>lynx.style.transform="rotate(0deg)",500); }
+  if(data.zoomies){ lynx.style.left=(data.x+Math.random()*50-25)+"px"; lynx.style.top=(data.y+Math.random()*50-25)+"px"; }
 });
 </script>
 </body>

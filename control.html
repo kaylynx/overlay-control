@@ -13,7 +13,6 @@ input[type=range]{width:150px;}
 <body>
 
 <h2>Control the Lynx 🐾</h2>
-
 <label>Password: <input id="passwordInput" type="password" placeholder="Enter password"></label>
 <button id="loginBtn">Enter</button>
 <p id="error" style="color:red;"></p>
@@ -23,24 +22,14 @@ input[type=range]{width:150px;}
   <div id="box">
     <img id="lynx" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png">
   </div>
-
-  <h3>Accessories</h3>
-  <button onclick="toggle('hat')">Hat</button>
-  <button onclick="toggle('glasses')">Glasses</button>
-  <button onclick="toggle('coffee')">Coffee</button>
-
   <h3>Animations</h3>
   <button onclick="animate('blink')">Blink</button>
   <button onclick="animate('bounce')">Bounce</button>
   <button onclick="animate('wiggle')">Wiggle</button>
   <button onclick="animate('spin')">Spin</button>
   <button onclick="animate('zoomies')">Zoomies</button>
-
   <h3>Resize</h3>
-  <label>Lynx: <input type="range" id="lynxSize" min="50" max="400" value="150"></label><br>
-  <label>Hat: <input type="range" id="hatSize" min="30" max="150" value="80"></label><br>
-  <label>Glasses: <input type="range" id="glassesSize" min="30" max="150" value="80"></label><br>
-  <label>Coffee: <input type="range" id="coffeeSize" min="30" max="150" value="80"></label>
+  <label>Lynx: <input type="range" id="lynxSize" min="50" max="400" value="150"></label>
 </div>
 
 <script type="module">
@@ -56,18 +45,13 @@ const firebaseConfig = {
   messagingSenderId: "511339245584",
   appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-let state = {
-  x:0, y:0, lynxWidth:150,
-  hat:false, hatWidth:80,
-  glasses:false, glassesWidth:80,
-  coffee:false, coffeeWidth:80,
-  blink:false, bounce:false, wiggle:false, spin:false, zoomies:false,
-  controller:""
-};
+// Generate a random session ID
+const sessionId = "user_" + Math.random().toString(36).substr(2,9);
+
+let state = {x:0, y:0, lynxWidth:150, blink:false, bounce:false, wiggle:false, spin:false, zoomies:false, controller:""};
 
 const PASSWORD = "yourpassword123";
 const loginBtn = document.getElementById("loginBtn");
@@ -95,9 +79,8 @@ const controlBoxHeight = 540;
 const scaleX = overlayWidth / controlBoxWidth;
 const scaleY = overlayHeight / controlBoxHeight;
 
-// Dragging
 lynx.onmousedown = () => {
-  document.onmousemove = (e) => {
+  document.onmousemove = e => {
     let rect = box.getBoundingClientRect();
     let x = e.clientX - rect.left;
     let y = e.clientY - rect.top;
@@ -107,26 +90,14 @@ lynx.onmousedown = () => {
     lynx.style.top = y + "px";
     state.x = x * scaleX;
     state.y = y * scaleY;
-    state.controller = nameInput.value || "Anonymous";
-    set(ref(db,"lynx"), state);
+    state.controller = nameInput.value||"Anonymous";
+    set(ref(db,"lynxSessions/"+sessionId),state);
   };
   document.onmouseup = () => { document.onmousemove = null; };
 };
 
-// Toggle accessories
-function toggle(item){ state[item]=!state[item]; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state); }
-
-// Animations
-function animate(action){ state[action]=true; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state);
-  setTimeout(()=>{state[action]=false; set(ref(db,"lynx"),state);},500);
-}
-
-// Resize
-function updateSize(name,val){ state[name]=parseInt(val); state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynx"),state); }
-document.getElementById("lynxSize").oninput = e=>updateSize("lynxWidth",e.target.value);
-document.getElementById("hatSize").oninput = e=>updateSize("hatWidth",e.target.value);
-document.getElementById("glassesSize").oninput = e=>updateSize("glassesWidth",e.target.value);
-document.getElementById("coffeeSize").oninput = e=>updateSize("coffeeWidth",e.target.value);
+function animate(action){ state[action]=true; state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynxSessions/"+sessionId),state); setTimeout(()=>{state[action]=false; set(ref(db,"lynxSessions/"+sessionId),state);},500); }
+document.getElementById("lynxSize").oninput = e => { state.lynxWidth=parseInt(e.target.value); state.controller=nameInput.value||"Anonymous"; set(ref(db,"lynxSessions/"+sessionId),state); }
 
 </script>
 </body>

@@ -3,22 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  body { margin:0; overflow:hidden; background:transparent; }
-  #lynx, #hat, #glasses, #coffee {
-    position:absolute; transition: all 0.2s ease; }
-  #controllerName {
-    position:absolute; top:10px; left:10px; font-family:sans-serif;
-    font-size:18px; color:#fff; text-shadow: 1px 1px 3px #000;
-  }
+body { margin:0; overflow:hidden; background:transparent; }
+.lynx-wrapper { position:absolute; transition: all 0.2s ease; }
+.lynx-img { position:absolute; top:0; left:0; }
+.controllerName {
+  position:absolute; top:-20px; left:0;
+  font-family:sans-serif; font-size:16px; color:white; text-shadow:1px 1px 3px #000;
+}
 </style>
 </head>
 <body>
-
-<div id="controllerName"></div>
-<img id="lynx" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png">
-<img id="hat" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Hat.png">
-<img id="glasses" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Glasses.png">
-<img id="coffee" src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Coffee.png">
+<div id="overlay"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
@@ -36,47 +31,51 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const overlay = document.getElementById("overlay");
 
-const lynx = document.getElementById("lynx");
-const hat = document.getElementById("hat");
-const glasses = document.getElementById("glasses");
-const coffee = document.getElementById("coffee");
-const controllerNameEl = document.getElementById("controllerName");
+const sessions = {}; // Keep track of Lynx elements per user
 
-onValue(ref(db, "lynx"), (snapshot) => {
-  const data = snapshot.val(); if(!data) return;
+onValue(ref(db,"lynxSessions"), snapshot => {
+  const data = snapshot.val() || {};
 
-  // Position
-  lynx.style.left = data.x + "px";
-  lynx.style.top = data.y + "px";
+  // Remove deleted sessions
+  Object.keys(sessions).forEach(id=>{
+    if(!data[id]) overlay.removeChild(sessions[id].wrapper), delete sessions[id];
+  });
 
-  hat.style.left = (data.x + 30) + "px";
-  hat.style.top = (data.y - 40) + "px";
-  hat.style.display = data.hat ? "block" : "none";
+  Object.entries(data).forEach(([id, userData])=>{
+    let wrapper = sessions[id]?.wrapper;
+    if(!wrapper){
+      wrapper = document.createElement("div");
+      wrapper.className="lynx-wrapper";
+      const img = document.createElement("img"); img.className="lynx-img"; img.src="https://raw.githubusercontent.com/kaylynx/overlay-control/main/Kaylynx_Eevee.png";
+      const nameEl = document.createElement("div"); nameEl.className="controllerName";
+      wrapper.appendChild(nameEl);
+      wrapper.appendChild(img);
+      overlay.appendChild(wrapper);
+      sessions[id]={wrapper,img,nameEl};
+    }
 
-  glasses.style.left = (data.x + 20) + "px";
-  glasses.style.top = (data.y + 20) + "px";
-  glasses.style.display = data.glasses ? "block" : "none";
+    // Position
+    wrapper.style.left = (userData.x||0) + "px";
+    wrapper.style.top = (userData.y||0) + "px";
 
-  coffee.style.left = (data.x - 20) + "px";
-  coffee.style.top = (data.y + 80) + "px";
-  coffee.style.display = data.coffee ? "block" : "none";
+    // Size
+    sessions[id].img.style.width = (userData.lynxWidth||150) + "px";
 
-  // Size
-  if(data.lynxWidth) lynx.style.width = data.lynxWidth + "px";
-  if(data.hatWidth) hat.style.width = data.hatWidth + "px";
-  if(data.glassesWidth) glasses.style.width = data.glassesWidth + "px";
-  if(data.coffeeWidth) coffee.style.width = data.coffeeWidth + "px";
+    // Accessories
+    // You can add hats/glasses/coffee similarly by creating extra img elements under wrapper
 
-  // Controller name
-  controllerNameEl.innerText = data.controller || "";
+    // Name
+    sessions[id].nameEl.innerText = userData.controller || "";
 
-  // Animations
-  if(data.blink){ lynx.style.transform="scaleY(0.1)"; setTimeout(()=>lynx.style.transform="scaleY(1)",200); }
-  if(data.bounce){ lynx.style.transform="translateY(-20px)"; setTimeout(()=>lynx.style.transform="translateY(0)",200); }
-  if(data.wiggle){ lynx.style.transform="rotate(10deg)"; setTimeout(()=>lynx.style.transform="rotate(-10deg)",100); setTimeout(()=>lynx.style.transform="rotate(0deg)",200); }
-  if(data.spin){ lynx.style.transform="rotate(360deg)"; setTimeout(()=>lynx.style.transform="rotate(0deg)",500); }
-  if(data.zoomies){ lynx.style.left=(data.x+Math.random()*50-25)+"px"; lynx.style.top=(data.y+Math.random()*50-25)+"px"; }
+    // Animations (example: blink)
+    if(userData.blink){ sessions[id].img.style.transform="scaleY(0.1)"; setTimeout(()=>sessions[id].img.style.transform="scaleY(1)",200);}
+    if(userData.bounce){ sessions[id].img.style.transform="translateY(-20px)"; setTimeout(()=>sessions[id].img.style.transform="translateY(0)",200);}
+    if(userData.wiggle){ sessions[id].img.style.transform="rotate(10deg)"; setTimeout(()=>sessions[id].img.style.transform="rotate(-10deg)",100); setTimeout(()=>sessions[id].img.style.transform="rotate(0deg)",200);}
+    if(userData.spin){ sessions[id].img.style.transform="rotate(360deg)"; setTimeout(()=>sessions[id].img.style.transform="rotate(0deg)",500);}
+    if(userData.zoomies){ sessions[id].img.style.left=(userData.x+Math.random()*50-25)+"px"; sessions[id].img.style.top=(userData.y+Math.random()*50-25)+"px";}
+  });
 });
 </script>
 </body>

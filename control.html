@@ -4,69 +4,64 @@
     <meta charset="UTF-8">
     <title>Lynx Super Controller</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; display: flex; height: 100vh; margin: 0; }
-        #sidebar { width: 300px; background: #2c2c2c; padding: 15px; overflow-y: auto; border-right: 2px solid #444; }
-        #main-stage { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        #box { 
-            width: 960px; height: 540px; border: 2px solid #555; 
-            position: relative; background: #333; overflow: hidden;
-        }
-        
-        .draggable { position: absolute; cursor: move; }
-        .selected { outline: 2px solid #00ffcc; z-index: 1000; }
-        
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        #sidebar { width: 280px; background: #2c2c2c; padding: 15px; overflow-y: auto; border-right: 2px solid #444; }
+        #main-stage { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; }
+        #box { width: 800px; height: 450px; border: 2px solid #555; position: relative; background: #333; cursor: crosshair; }
+        .draggable { position: absolute; cursor: move; transform-origin: center; }
+        .selected { outline: 2px solid #ff00ff; z-index: 1000 !important; }
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px; }
-        button { padding: 8px; cursor: pointer; background: #444; color: white; border: 1px solid #666; border-radius: 4px; }
+        button { padding: 8px; cursor: pointer; background: #444; color: white; border: 1px solid #666; border-radius: 4px; font-size: 12px; }
         button:hover { background: #555; }
-        .sound-btn { background: #2e4a3e; }
-        .draw-btn { background: #4a2e2e; }
-        
-        #edit-panel { background: #333; padding: 10px; width: 940px; display: flex; gap: 20px; align-items: center; border-top: 1px solid #444;}
+        button.active { background: #ff00ff; border-color: white; }
+        #edit-panel { background: #222; padding: 15px; width: 800px; display: flex; gap: 15px; align-items: center; border-top: 1px solid #444; justify-content: space-between;}
         #login-screen { position: fixed; inset: 0; background: #1a1a1a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        input { background: #333; color: white; border: 1px solid #555; padding: 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div id="login-screen">
     <h2>🐾 Enter Password</h2>
-    <input id="passwordInput" type="password" style="padding:10px; margin-bottom:10px;">
-    <button id="loginBtn" style="width:100px;">Enter</button>
+    <input id="passwordInput" type="password">
+    <button id="loginBtn" style="margin-top:10px;">Enter</button>
 </div>
 
 <div id="sidebar">
     <h3>Closet</h3>
     <div class="btn-grid" id="accessory-list"></div>
     
-    <h3>Soundboard</h3>
+    <h3>Tools</h3>
     <div class="btn-grid">
-        <button class="sound-btn" onclick="playSound('meow')">Meow</button>
-        <button class="sound-btn" onclick="playSound('boing')">Boing</button>
+        <button id="penBtn" onclick="setMode('pen')">🖌️ Pen Mode</button>
+        <button id="moveBtn" onclick="setMode('move')" class="active">🖱️ Move Mode</button>
+        <button onclick="clearDrawings()" style="grid-column: span 2; background: #611;">Clear All Ink</button>
     </div>
 
-    <h3>Canvas</h3>
-    <button class="draw-btn" onclick="clearWhiteboard()" style="width:100%">Clear All Drawings</button>
+    <h3>Soundboard</h3>
+    <div class="btn-grid">
+        <button onclick="playSound('meow')">Meow</button>
+        <button onclick="playSound('boing')">Boing</button>
+    </div>
 </div>
 
 <div id="main-stage">
-    <input id="userName" placeholder="Enter your name" style="margin-bottom:10px; padding:8px; width:300px;">
+    <input id="userName" placeholder="Your Twitch Name" style="margin-bottom:10px; width: 300px;">
     <div id="box">
-        <canvas id="whiteboard" width="960" height="540" style="position:absolute; top:0; left:0; z-index:1; pointer-events:none;"></canvas>
+        <canvas id="drawingCanvas" width="800" height="450" style="position:absolute; top:0; left:0; z-index:500; pointer-events:none;"></canvas>
     </div>
 
     <div id="edit-panel">
-        <div>
-            Size: <input type="range" id="sizeSlider" min="50" max="600" value="150">
-        </div>
+        <label>Size: <input type="range" id="sizeSlider" min="10" max="80" value="20"></label>
         <button onclick="toggleFlip()">Flip ↔️</button>
         <button onclick="bringToFront()">Bring to Front 🔝</button>
-        <button onclick="removeItem()" style="background:#8b0000">Remove Item</button>
+        <button onclick="removeItem()" style="background:#8b0000">Remove</button>
     </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getDatabase, ref, set, update, onValue, push } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, push, remove } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
@@ -82,78 +77,122 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const sessionId = "user_" + Math.random().toString(36).substr(2,9);
 const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/";
-
 const files = ['Kaylynx_Eevee.png', '8bit.png', 'aviators.png', 'blackheart.png', 'cateye.png', 'cowboy.png', 'jester.png', 'party.png', 'pinkheart.png', 'pirate.png', 'santa.png', 'shades.png', 'sunhat.png', 'witch.png'];
 
 let sessionData = { controller: "Anonymous", items: {} };
 let selectedId = null;
-let maxZ = 10;
+let mode = 'move'; 
+let isDrawing = false;
 
-// Populate Buttons
+// UI Setup
 const list = document.getElementById('accessory-list');
-files.forEach(file => {
-    const btn = document.createElement('button');
-    btn.innerText = file.replace('.png', '');
-    btn.onclick = () => addItem(baseUrl + file);
-    list.appendChild(btn);
+files.forEach(f => {
+    const b = document.createElement('button');
+    b.innerText = f.split('.')[0];
+    b.onclick = () => addItem(baseUrl + f);
+    list.appendChild(b);
 });
 
-// Login
 document.getElementById('loginBtn').onclick = () => {
-    if(document.getElementById('passwordInput').value === "yourpassword123") {
+    if(document.getElementById('passwordInput').value === "yourpassword123") 
         document.getElementById('login-screen').style.display = "none";
-    }
 };
 
+// Mode Switcher
+window.setMode = (m) => {
+    mode = m;
+    document.getElementById('penBtn').className = m === 'pen' ? 'active' : '';
+    document.getElementById('moveBtn').className = m === 'move' ? 'active' : '';
+    document.getElementById('box').style.pointerEvents = 'auto';
+};
+
+// Item Logic
 window.addItem = (url) => {
     const id = "item_" + Date.now();
-    sessionData.items[id] = { src: url, x: 200, y: 200, w: 150, flip: 1, z: ++maxZ };
+    sessionData.items[id] = { src: url, x: 40, y: 40, w: 20, flip: 1, z: 10 };
     sessionData.controller = document.getElementById('userName').value || "Guest";
     sync(); render();
 };
 
 window.removeItem = () => { if(selectedId) { delete sessionData.items[selectedId]; selectedId = null; sync(); render(); }};
-
 window.toggleFlip = () => { if(selectedId) { sessionData.items[selectedId].flip *= -1; sync(); render(); }};
-
-window.bringToFront = () => { if(selectedId) { sessionData.items[selectedId].z = ++maxZ; sync(); render(); }};
+window.bringToFront = () => { if(selectedId) { 
+    const maxZ = Math.max(...Object.values(sessionData.items).map(i => i.z || 0), 10);
+    sessionData.items[selectedId].z = maxZ + 1; 
+    sync(); render(); 
+}};
 
 window.playSound = (type) => { push(ref(db, 'triggers'), { type: type, time: Date.now() }); };
+window.clearDrawings = () => { remove(ref(db, 'drawings')); };
 
 function sync() { set(ref(db, `lynxSessions/${sessionId}`), sessionData); }
 
+// Drawing Logic
+const canvas = document.getElementById('drawingCanvas');
+const ctx = canvas.getContext('2d');
+const box = document.getElementById('box');
+
+box.onmousedown = (e) => {
+    if(mode === 'pen') {
+        isDrawing = true;
+        draw(e);
+    }
+};
+
+window.onmousemove = (e) => { if(isDrawing && mode === 'pen') draw(e); };
+window.onmouseup = () => { isDrawing = false; };
+
+function draw(e) {
+    const rect = box.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    push(ref(db, 'drawings'), { x, y, color: '#ff00ff' });
+}
+
+// Sync drawings from DB to local canvas
+onValue(ref(db, 'drawings'), (snap) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const data = snap.val();
+    if(!data) return;
+    Object.values(data).forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc((p.x / 100) * canvas.width, (p.y / 100) * canvas.height, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+});
+
 function render() {
-    const box = document.getElementById('box');
-    // Remove only images
     box.querySelectorAll('.draggable').forEach(n => n.remove());
-    
     Object.entries(sessionData.items).forEach(([id, data]) => {
         const img = document.createElement('img');
         img.src = data.src;
         img.className = "draggable" + (selectedId === id ? " selected" : "");
-        img.style.left = (data.x / 2) + "px";
-        img.style.top = (data.y / 2) + "px";
-        img.style.width = (data.w / 2) + "px";
+        img.style.left = data.x + "%";
+        img.style.top = data.y + "%";
+        img.style.width = data.w + "%";
         img.style.transform = `scaleX(${data.flip})`;
         img.style.zIndex = data.z;
 
         img.onmousedown = (e) => {
+            if(mode !== 'move') return;
+            e.stopPropagation();
             selectedId = id;
-            let startX = e.clientX - img.offsetLeft;
-            let startY = e.clientY - img.offsetTop;
             document.onmousemove = (ev) => {
-                sessionData.items[id].x = (ev.clientX - startX) * 2;
-                sessionData.items[id].y = (ev.clientY - startY) * 2;
+                const rect = box.getBoundingClientRect();
+                sessionData.items[id].x = ((ev.clientX - rect.left) / rect.width) * 100 - (data.w / 2);
+                sessionData.items[id].y = ((ev.clientY - rect.top) / rect.height) * 100 - (data.w / 2);
                 render();
             };
             document.onmouseup = () => { document.onmousemove = null; sync(); };
+            render();
         };
         box.appendChild(img);
     });
 }
 
 document.getElementById('sizeSlider').oninput = (e) => {
-    if(selectedId) { sessionData.items[selectedId].w = e.target.value; render(); }
+    if(selectedId) { sessionData.items[selectedId].w = parseInt(e.target.value); render(); }
 };
 document.getElementById('sizeSlider').onchange = () => sync();
 </script>

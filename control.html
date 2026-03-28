@@ -1,239 +1,63 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Lynx Super Controller</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        #sidebar { width: 280px; background: #2c2c2c; padding: 15px; overflow-y: auto; border-right: 2px solid #444; z-index: 10; }
-        #main-stage { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; position: relative; }
-        
-        /* Fixed 16:9 Aspect Ratio Box */
-        #box-container { width: 80%; max-width: 960px; aspect-ratio: 16 / 9; position: relative; border: 2px solid #555; background: #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        #box { width: 100%; height: 100%; position: relative; overflow: hidden; cursor: crosshair; }
-        
-        .draggable { position: absolute; cursor: move; transform-origin: center; pointer-events: auto; }
-        .selected { outline: 2px solid #00ffcc; z-index: 1000 !important; }
-        
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px; }
-        button { padding: 8px; cursor: pointer; background: #444; color: white; border: 1px solid #666; border-radius: 4px; font-size: 12px; transition: 0.2s; }
-        button:hover { background: #555; border-color: #888; }
-        button.active { background: #00ffcc; color: #000; font-weight: bold; }
-        
-        .color-circle { width: 25px; height: 25px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; display: inline-block; margin: 2px; }
-        
-        #edit-panel { background: #222; padding: 15px; width: 100%; display: flex; gap: 20px; align-items: center; border-top: 1px solid #444; justify-content: center; position: absolute; bottom: 0; }
-        #login-screen { position: fixed; inset: 0; background: #1a1a1a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        input[type=range] { accent-color: #00ffcc; }
-    </style>
-</head>
-<body>
-
-<div id="login-screen">
-    <h2 style="color:#00ffcc">🐾 Enter the Den</h2>
-    <input id="passwordInput" type="password" style="padding:10px; border-radius:5px; border:none; width:200px;">
-    <button id="loginBtn" style="margin-top:15px; width:120px; background:#00ffcc; color:#000;">Enter</button>
-</div>
-
+<!-- ... keep your same head/styles ... -->
 <div id="sidebar">
-    <h3>Closet</h3>
-    <div class="btn-grid" id="accessory-list"></div>
-    
+    <!-- ... same closet ... -->
+
+    <h3>Admin Tools</h3>
+    <div class="btn-grid">
+        <button onclick="clearAllAccessories()" style="grid-column: span 2; background: #822;">☢️ Nuke All Accessories</button>
+        <button onclick="clearDrawings()" style="grid-column: span 2; background: #611;">Reset Whiteboard</button>
+    </div>
+
     <h3>Pen Settings</h3>
     <div style="margin-bottom:10px;">
         <div class="color-circle" style="background:#ff00ff" onclick="setPenColor('#ff00ff')"></div>
         <div class="color-circle" style="background:#00ffcc" onclick="setPenColor('#00ffcc')"></div>
         <div class="color-circle" style="background:#ffff00" onclick="setPenColor('#ffff00')"></div>
-        <div class="color-circle" style="background:#ffffff" onclick="setPenColor('#ffffff')"></div>
-        <input type="color" id="customColor" onchange="setPenColor(this.value)" style="width:30px; height:30px; vertical-align:middle; border:none; background:none; cursor:pointer;">
+        <input type="color" id="customColor" onchange="setPenColor(this.value)">
     </div>
-    <label style="font-size:12px;">Pen Size: <input type="range" id="penWidth" min="1" max="20" value="5" style="width:100%"></label>
+    <label style="font-size:12px;">Pen Size: <input type="range" id="penWidth" min="1" max="40" value="10" style="width:100%"></label>
     
     <div class="btn-grid" style="margin-top:15px;">
         <button id="penBtn" onclick="setMode('pen')">🖌️ Draw</button>
         <button id="moveBtn" onclick="setMode('move')" class="active">🖱️ Move</button>
-        <button onclick="clearDrawings()" style="grid-column: span 2; background: #611;">Reset Whiteboard</button>
     </div>
-
-    <h3>Sounds</h3>
-    <div class="btn-grid">
-        <button onclick="playSound('meow')">Meow</button>
-        <button onclick="playSound('boing')">Boing</button>
-    </div>
-</div>
-
-<div id="main-stage">
-    <input id="userName" placeholder="Your Name" style="margin-bottom:20px; width: 300px; padding:10px; background:#222; border:1px solid #444; color:white; border-radius:5px;">
-    
-    <div id="box-container">
-        <div id="box">
-            <canvas id="drawingCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5;"></canvas>
-        </div>
-    </div>
-
-    <div id="edit-panel">
-        <label>Item Size: <input type="range" id="sizeSlider" min="5" max="50" value="20"></label>
-        <button onclick="toggleFlip()">Flip ↔️</button>
-        <button onclick="bringToFront()">Bring to Front 🔝</button>
-        <button onclick="removeItem()" style="background:#8b0000; border-color:#a00;">Remove Selected</button>
-    </div>
+    <!-- ... same sounds ... -->
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, push, remove } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js";
+// ... same firebase imports and config ...
 
-const firebaseConfig = {
-    apiKey: "AIzaSyBhf8FpATvr1i4qQiLVsDIByzWk7cREBag",
-    authDomain: "overlay-control-a2c56.firebaseapp.com",
-    databaseURL: "https://overlay-control-a2c56-default-rtdb.firebaseio.com",
-    projectId: "overlay-control-a2c56",
-    storageBucket: "overlay-control-a2c56.firebasestorage.app",
-    messagingSenderId: "511339245584",
-    appId: "1:511339245584:web:2eaa1a535d438e847b5a95"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const sessionId = "user_" + Math.random().toString(36).substr(2,9);
-const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/";
-const files = ['Kaylynx_Eevee.png', '8bit.png', 'aviators.png', 'blackheart.png', 'cateye.png', 'cowboy.png', 'jester.png', 'party.png', 'pinkheart.png', 'pirate.png', 'santa.png', 'shades.png', 'sunhat.png', 'witch.png'];
-
-let sessionData = { controller: "Anonymous", items: {} };
-let selectedId = null;
-let mode = 'move'; 
-let isDrawing = false;
-let currentPenColor = '#ff00ff';
-let lastPoint = null;
-
-// Populate Closet
-const list = document.getElementById('accessory-list');
-files.forEach(f => {
-    const b = document.createElement('button');
-    b.innerText = f.split('.')[0];
-    b.onclick = () => addItem(baseUrl + f);
-    list.appendChild(b);
-});
-
-document.getElementById('loginBtn').onclick = () => {
-    if(document.getElementById('passwordInput').value === "yourpassword123") 
-        document.getElementById('login-screen').style.display = "none";
-};
-
-window.setMode = (m) => {
-    mode = m;
-    document.getElementById('penBtn').className = m === 'pen' ? 'active' : '';
-    document.getElementById('moveBtn').className = m === 'move' ? 'active' : '';
-};
-
-window.setPenColor = (c) => { currentPenColor = c; };
-
-window.addItem = (url) => {
-    const id = "item_" + Date.now();
-    sessionData.items[id] = { src: url, x: 45, y: 45, w: 15, flip: 1, z: 10 };
-    sessionData.controller = document.getElementById('userName').value || "Guest";
-    sync(); render();
-};
-
-window.removeItem = () => { if(selectedId) { delete sessionData.items[selectedId]; selectedId = null; sync(); render(); }};
-window.toggleFlip = () => { if(selectedId) { sessionData.items[selectedId].flip *= -1; sync(); render(); }};
-window.bringToFront = () => { if(selectedId) { 
-    const maxZ = Math.max(...Object.values(sessionData.items).map(i => i.z || 0), 10);
-    sessionData.items[selectedId].z = maxZ + 1; 
-    sync(); render(); 
-}};
-
-window.playSound = (type) => { push(ref(db, 'triggers'), { type: type, time: Date.now() }); };
-window.clearDrawings = () => { remove(ref(db, 'drawings')); };
-
-function sync() { set(ref(db, `lynxSessions/${sessionId}`), sessionData); }
-
-// Smooth Drawing Logic
-const canvas = document.getElementById('drawingCanvas');
-const ctx = canvas.getContext('2d');
-const box = document.getElementById('box');
-
-function resizeCanvas() {
-    canvas.width = box.clientWidth;
-    canvas.height = box.clientHeight;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-box.onmousedown = (e) => {
-    if(mode === 'pen') {
-        isDrawing = true;
-        const rect = box.getBoundingClientRect();
-        lastPoint = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
+// NEW ADMIN FUNCTIONS
+window.clearAllAccessories = () => {
+    if(confirm("This will remove EVERY accessory from the screen. Continue?")) {
+        remove(ref(db, 'lynxSessions'));
+        sessionData.items = {}; // Clear local session too
+        render();
     }
 };
 
+window.clearDrawings = () => { remove(ref(db, 'drawings')); };
+
+// UPDATED DRAWING LOGIC
 window.onmousemove = (e) => {
     if(!isDrawing || mode !== 'pen') return;
     const rect = box.getBoundingClientRect();
-    const currentPoint = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
+    const currentPoint = { 
+        x: ((e.clientX - rect.left) / rect.width) * 100, 
+        y: ((e.clientY - rect.top) / rect.height) * 100 
+    };
     
+    // We send the width as a percentage of the box width
+    const normalizedWidth = (document.getElementById('penWidth').value / rect.width) * 100;
+
     push(ref(db, 'drawings'), { 
         x1: lastPoint.x, y1: lastPoint.y, 
         x2: currentPoint.x, y2: currentPoint.y, 
         color: currentPenColor,
-        width: document.getElementById('penWidth').value
+        width: normalizedWidth 
     });
     
     lastPoint = currentPoint;
 };
-
-window.onmouseup = () => { isDrawing = false; lastPoint = null; };
-
-// Sync drawings from DB
-onValue(ref(db, 'drawings'), (snap) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const data = snap.val();
-    if(!data) return;
-    Object.values(data).forEach(line => {
-        ctx.strokeStyle = line.color;
-        ctx.lineWidth = line.width;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo((line.x1 / 100) * canvas.width, (line.y1 / 100) * canvas.height);
-        ctx.lineTo((line.x2 / 100) * canvas.width, (line.y2 / 100) * canvas.height);
-        ctx.stroke();
-    });
-});
-
-function render() {
-    box.querySelectorAll('.draggable').forEach(n => n.remove());
-    Object.entries(sessionData.items).forEach(([id, data]) => {
-        const img = document.createElement('img');
-        img.src = data.src;
-        img.className = "draggable" + (selectedId === id ? " selected" : "");
-        img.style.left = data.x + "%";
-        img.style.top = data.y + "%";
-        img.style.width = data.w + "%";
-        img.style.transform = `translate(-50%, -50%) scaleX(${data.flip})`; // Translate -50% centers the item on your mouse
-        img.style.zIndex = data.z;
-
-        img.onmousedown = (e) => {
-            if(mode !== 'move') return;
-            e.stopPropagation();
-            selectedId = id;
-            document.onmousemove = (ev) => {
-                const rect = box.getBoundingClientRect();
-                sessionData.items[id].x = ((ev.clientX - rect.left) / rect.width) * 100;
-                sessionData.items[id].y = ((ev.clientY - rect.top) / rect.height) * 100;
-                render();
-            };
-            document.onmouseup = () => { document.onmousemove = null; sync(); };
-            render();
-        };
-        box.appendChild(img);
-    });
-}
-
-document.getElementById('sizeSlider').oninput = (e) => {
-    if(selectedId) { sessionData.items[selectedId].w = parseInt(e.target.value); render(); }
-};
-document.getElementById('sizeSlider').onchange = () => sync();
+// ... rest of your script ...
 </script>
-</body>
-</html>

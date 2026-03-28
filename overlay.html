@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <style>
         body { margin:0; overflow:hidden; background:transparent; }
-        #overlay-container { width: 100vw; height: 100vh; position: relative; transition: filter 0.3s; }
+        #overlay-container { width: 100vw; height: 100vh; position: relative; }
         .user-item { position: absolute; transform: translate(-50%, -50%); pointer-events: none; transition: top 0.1s, left 0.1s; }
         .name-tag { 
             position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
@@ -14,25 +14,31 @@
         }
         #drawLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
 
-        /* ANIMATIONS */
+        /* CHAOS ANIMATIONS */
         @keyframes shake {
             0% { transform: translate(1px, 1px) rotate(0deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            40% { transform: translate(3px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
+            25% { transform: translate(-2px, -1px) rotate(1deg); }
+            50% { transform: translate(2px, 2px) rotate(-1deg); }
+            75% { transform: translate(-1px, 1px) rotate(0deg); }
+            100% { transform: translate(0,0); }
         }
-        .shake-active { animation: shake 0.3s infinite; }
+        .shake-active { animation: shake 0.15s infinite; }
 
         @keyframes rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
         .rainbow-active .user-item img { animation: rainbow 3s linear infinite; }
 
-        @keyframes bonked {
-            0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
-            50% { transform: translate(-50%, -50%) scale(1.8) rotate(180deg); filter: brightness(2); }
-            100% { transform: translate(-50%, -50%) scale(1) rotate(360deg); }
+        @keyframes bonk-anim {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            30% { transform: translate(-50%, -50%) scale(1.6) rotate(15deg); filter: brightness(2); }
+            100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
         }
-        .is-bonked { animation: bonked 0.6s ease-out !important; }
+        .is-bonked { animation: bonk-anim 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) !important; }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        .confetti { position: absolute; width: 10px; height: 10px; top: -10px; animation: confetti-fall 3s linear forwards; z-index: 100; }
 
         @keyframes heartpop {
             0% { transform: scale(0); opacity: 0; }
@@ -66,10 +72,64 @@ const canvas = document.getElementById('drawLayer');
 const ctx = canvas.getContext('2d');
 const baseUrl = "https://raw.githubusercontent.com/kaylynx/overlay-control/main/";
 
+const bonkAudio = new Audio("https://www.myinstants.com/media/sounds/anime-punch.mp3");
+const hornAudio = new Audio("https://www.myinstants.com/media/sounds/party-horn-sound-effect.mp3");
+
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.onresize = resize; resize();
 
-// Main Sync
+// Effect Events (Party/Shake/Hearts)
+onChildAdded(ref(db, 'effects/events'), (snap) => {
+    const data = snap.val();
+    if(!data || Date.now() - data.time > 5000) return;
+
+    if(data.name === 'party') {
+        hornAudio.play().catch(e => {});
+        for(let i=0; i<40; i++) {
+            const c = document.createElement('div');
+            c.className = 'confetti';
+            c.style.left = Math.random() * 100 + "vw";
+            c.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            c.style.animationDelay = Math.random() * 2 + "s";
+            container.appendChild(c);
+            setTimeout(() => c.remove(), 5000);
+        }
+    }
+
+    if(data.name === 'screenshake') {
+        container.classList.add('shake-active');
+        setTimeout(() => container.classList.remove('shake-active'), 1000);
+    }
+
+    if(data.name === 'heart') {
+        const h = document.createElement('div'); h.className = 'heart'; h.innerText = '❤️';
+        h.style.left = Math.random() * 80 + 10 + "%"; h.style.top = "70%";
+        container.appendChild(h); setTimeout(() => h.remove(), 1000);
+    }
+});
+
+// Rainbow Sync
+onValue(ref(db, 'effects/rainbow'), (snap) => {
+    if(snap.val()) container.classList.add('rainbow-active');
+    else container.classList.remove('rainbow-active');
+});
+
+// Sound & Bonk Sync
+onChildAdded(ref(db, 'triggers'), (snapshot) => {
+    const t = snapshot.val();
+    if (Date.now() - t.time < 3000) {
+        if(t.type === 'sound') {
+            new Audio(baseUrl + t.file).play().catch(e => {});
+        }
+        if(t.type === 'bonk') {
+            const el = document.querySelector(`[data-id="${t.targetId}"]`);
+            if(el) { el.classList.add('is-bonked'); setTimeout(() => el.classList.remove('is-bonked'), 500); }
+            bonkAudio.currentTime = 0; bonkAudio.play().catch(e => {});
+        }
+    }
+});
+
+// Accessories & Name Tags
 onValue(ref(db, "lynxSessions"), (snap) => {
     document.querySelectorAll('.user-item').forEach(e => e.remove());
     const data = snap.val() || {};
@@ -90,7 +150,7 @@ onValue(ref(db, "lynxSessions"), (snap) => {
     });
 });
 
-// Drawings
+// Whiteboard Sync
 onValue(ref(db, 'drawings'), (snap) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const data = snap.val(); if(!data) return;
@@ -99,40 +159,6 @@ onValue(ref(db, 'drawings'), (snap) => {
         ctx.beginPath(); ctx.moveTo((line.x1 / 100) * canvas.width, (line.y1 / 100) * canvas.height);
         ctx.lineTo((line.x2 / 100) * canvas.width, (line.y2 / 100) * canvas.height); ctx.stroke();
     });
-});
-
-// Global Effects
-onValue(ref(db, 'effects/trigger'), (snap) => {
-    const data = snap.val(); if(!data || Date.now() - data.time > 2000) return;
-    if(data.name === 'screenshake') {
-        container.classList.add('shake-active');
-        setTimeout(() => container.classList.remove('shake-active'), 1500);
-    }
-    if(data.name === 'heart') {
-        const h = document.createElement('div'); h.className = 'heart'; h.innerText = '❤️';
-        h.style.left = Math.random() * 80 + 10 + "%"; h.style.top = "70%";
-        container.appendChild(h); setTimeout(() => h.remove(), 1000);
-    }
-});
-
-onValue(ref(db, 'effects/rainbow'), (snap) => {
-    if(snap.val()) container.classList.add('rainbow-active');
-    else container.classList.remove('rainbow-active');
-});
-
-// Sound & Bonk Triggers
-onChildAdded(ref(db, 'triggers'), (snapshot) => {
-    const t = snapshot.val();
-    if (Date.now() - t.time < 2000) {
-        if(t.type === 'sound') {
-            new Audio(baseUrl + t.file).play().catch(e => console.log("Blocked"));
-        }
-        if(t.type === 'bonk') {
-            const el = document.querySelector(`[data-id="${t.targetId}"]`);
-            if(el) { el.classList.add('is-bonked'); setTimeout(() => el.classList.remove('is-bonked'), 600); }
-            new Audio('https://assets.mixkit.co/active_storage/sfx/1344/1344-preview.mp3').play();
-        }
-    }
 });
 </script>
 </body>
